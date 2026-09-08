@@ -1,604 +1,1216 @@
 <!DOCTYPE html>
+
 <html lang="en" data-theme="light">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Multi-Tab Video Call Chat</title>
+
+    <title>Xchat - P2P Chat</title>
+
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
     <style>
+
         :root {
+
             --bg-color: #f3f4f6;
+
             --container-bg: #ffffff;
+
             --header-bg: #ffffff;
+
             --header-text: #1f2937;
+
             --text-color: #374151;
+
             --msg-sent-bg: #2563eb;
+
             --msg-sent-text: #ffffff;
+
             --msg-received-bg: #e5e7eb;
+
             --msg-received-text: #1f2937;
+
             --msg-system-bg: #fef3c7;
+
             --msg-system-text: #92400e;
+
             --input-bg: #f9fafb;
+
             --input-border: #e5e7eb;
+
             --input-text: #1f2937;
+
             --sidebar-bg: #f9fafb;
+
             --sidebar-border: #e5e7eb;
+
             --hover-bg: #f3f4f6;
+
             --primary: #2563eb;
+
             --primary-hover: #1d4ed8;
+
         }
+
+
 
         [data-theme="dark"] {
+
             --bg-color: #0f172a;
+
             --container-bg: #1e293b;
+
             --header-bg: #1e293b;
+
             --header-text: #f1f5f9;
+
             --text-color: #cbd5e1;
+
             --msg-sent-bg: #3b82f6;
+
             --msg-sent-text: #ffffff;
+
             --msg-received-bg: #334155;
+
             --msg-received-text: #f1f5f9;
+
             --msg-system-bg: #422006;
+
             --msg-system-text: #fde68a;
+
             --input-bg: #0f172a;
+
             --input-border: #334155;
+
             --input-text: #f1f5f9;
+
             --sidebar-bg: #0f172a;
+
             --sidebar-border: #334155;
+
             --hover-bg: #334155;
+
             --primary: #3b82f6;
+
             --primary-hover: #60a5fa;
+
         }
 
+
+
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
         body { background: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+
         
+
         .container { width: 100%; max-width: 850px; height: 90vh; background: var(--container-bg); border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); overflow: hidden; position: relative; border: 1px solid var(--sidebar-border); }
+
         
+
         .header { background: var(--header-bg); color: var(--header-text); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--sidebar-border); }
+
         .header-info { display: flex; flex-direction: column; gap: 2px; }
+
         .header-info div:first-child { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.025em; }
+
         .header-controls { display: flex; gap: 8px; align-items: center; }
+
         
+
         .icon-btn { background: var(--hover-bg); border: 1px solid var(--sidebar-border); color: var(--text-color); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease; }
+
         .icon-btn:hover { background: var(--primary); color: #ffffff; border-color: var(--primary); }
 
+
+
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
+
         
+
         .sidebar { width: 220px; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border); padding: 16px; display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem; overflow-y: auto; }
+
         .sidebar h4 { margin-bottom: 8px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; font-weight: 700; }
+
         
-        .user-item { padding: 8px 10px; border-radius: 8px; background: var(--container-bg); border: 1px solid var(--sidebar-border); display: flex; justify-content: space-between; align-items: center; font-weight: 500; font-size: 0.85rem; }
-        .direct-call-btn { background: #10b981; color: white; border: none; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
-        .direct-call-btn:hover { opacity: 0.9; }
+
+        .user-item { padding: 8px 10px; border-radius: 8px; background: var(--container-bg); border: 1px solid var(--sidebar-border); font-weight: 500; font-size: 0.85rem; }
+
+
 
         .chat-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--container-bg); }
+
         .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+
         
+
         .msg { max-width: 70%; padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; word-break: break-word; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
         .msg.sent { background: var(--msg-sent-bg); color: var(--msg-sent-text); align-self: flex-end; border-bottom-right-radius: 4px; }
+
         .msg.received { background: var(--msg-received-bg); color: var(--msg-received-text); align-self: flex-start; border-bottom-left-radius: 4px; }
+
         .msg.system { background: var(--msg-system-bg); color: var(--msg-system-text); align-self: center; font-size: 0.75rem; border-radius: 6px; text-align: center; padding: 6px 12px; font-weight: 500; box-shadow: none; }
+
         
+
         .msg-text { line-height: 1.4; }
+
         .msg-meta { font-size: 0.7rem; opacity: 0.7; align-self: flex-end; margin-top: 2px; }
+
         .msg img { max-width: 100%; border-radius: 8px; margin-top: 6px; }
+
+
 
         .typing-indicator { padding: 0 20px 8px 20px; font-size: 0.75rem; opacity: 0.6; font-style: italic; height: 22px; font-weight: 500; }
 
+
+
         .input-area { display: flex; padding: 16px 20px; border-top: 1px solid var(--sidebar-border); background: var(--container-bg); align-items: center; gap: 10px; }
+
         .input-area input[type="text"] { flex: 1; padding: 12px 16px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--input-text); border-radius: 12px; outline: none; font-size: 0.95rem; transition: border-color 0.2s; }
+
         .input-area input[type="text"]:focus { border-color: var(--primary); }
+
         
+
         .input-action-btn { background: var(--hover-bg); border: 1px solid var(--input-border); color: var(--text-color); width: 42px; height: 42px; border-radius: 12px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 1.1rem; flex-shrink: 0; transition: background 0.2s; }
+
         .input-action-btn:hover { background: var(--sidebar-border); }
+
         
+
         .send-btn { background: var(--primary); color: #ffffff; border: none; padding: 12px 20px; border-radius: 12px; cursor: pointer; font-weight: 600; flex-shrink: 0; font-size: 0.95rem; transition: background 0.2s; }
+
         .send-btn:hover { background: var(--primary-hover); }
 
-        #callOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 100; display: none; flex-direction: column; justify-content: space-between; padding: 24px; color: white; backdrop-filter: blur(8px); }
-        .call-videos { display: flex; flex: 1; gap: 16px; justify-content: center; align-items: center; position: relative; margin: 16px 0; }
-        video { width: 48%; height: 100%; max-height: 400px; background: #000; border-radius: 12px; object-fit: cover; border: 2px solid rgba(255,255,255,0.1); }
-        .call-controls { display: flex; justify-content: center; gap: 16px; padding-bottom: 10px; }
-        .call-btn-action { padding: 12px 24px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 0.95rem; }
-        .end-call-btn { background: #ef4444; color: white; transition: background 0.2s; }
-        .end-call-btn:hover { background: #dc2626; }
+
 
         #setupScreen { padding: 40px; display: flex; flex-direction: column; gap: 16px; justify-content: center; align-items: center; height: 100%; width: 100%; max-width: 420px; margin: auto; text-align: center; }
+
         #setupScreen h2 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 4px; }
+
         #setupScreen p { opacity: 0.6; font-size: 0.9rem; margin-bottom: 8px; }
+
         #setupScreen input { width: 100%; padding: 14px 16px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--input-text); border-radius: 12px; font-size: 1rem; outline: none; transition: border-color 0.2s; }
+
         #setupScreen input:focus { border-color: var(--primary); }
-        #setupScreen button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 1rem; transition: background 0.2s; }
-        #setupScreen button:hover { background: var(--primary-hover); }
+
         
+
+        .btn-group { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+
+        .primary-btn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 1rem; transition: background 0.2s; }
+
+        .primary-btn:hover { background: var(--primary-hover); }
+
+        .secondary-btn { width: 100%; padding: 14px; background: var(--hover-bg); color: var(--text-color); border: 1px solid var(--input-border); border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+
+        .secondary-btn:hover { background: var(--sidebar-border); }
+
+
+
+        .hidden { display: none !important; }
+
+        .private-box { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+
+
+
+        .code-display-box { background: var(--hover-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--input-border); font-family: monospace; font-size: 1.1rem; font-weight: bold; word-break: break-all; margin-top: 5px; }
+
+
+
         #chatScreen { display: none; flex-direction: column; height: 100%; width: 100%; position: relative; }
+
         #fileInput { display: none; }
+
     </style>
+
 </head>
+
 <body>
 
+
+
     <div class="container">
+
         <div id="setupScreen">
+
             <div>
-                <h2>Welcome to P2P Chat</h2>
-                <p>Enter your nickname to join the room</p>
+
+                <h2>Xchat</h2>
+
+                <p>Enter your nickname to get started</p>
+
             </div>
+
             <input type="text" id="usernameInput" placeholder="Your nickname..." autocomplete="off">
-            <button id="joinBtn">Join Room</button>
+
+            
+
+            <div class="btn-group" id="mainMenuButtons">
+
+                <button class="primary-btn" id="joinPublicBtn">Join Public Chat</button>
+
+                <button class="secondary-btn" id="privateMenuBtn">Create / Join Private Chat</button>
+
+            </div>
+
+
+
+            <div class="private-box hidden" id="privateOptionsBox">
+
+                <button class="primary-btn" id="createPrivateBtn">Create New Private Room</button>
+
+                <input type="text" id="joinCodeInput" placeholder="Paste join code here..." autocomplete="off">
+
+                <button class="primary-btn" id="joinPrivateBtn">Join with Code</button>
+
+                <button class="secondary-btn" id="backMenuBtn">Back</button>
+
+            </div>
+
         </div>
+
+
 
         <div id="chatScreen">
+
             <div class="header">
+
                 <div class="header-info">
-                    <div>Global P2P Room</div>
+
+                    <div id="roomTitle">Xchat Room</div>
+
                     <div style="font-size: 0.75rem; opacity: 0.6; font-weight: 500;" id="connectionStatus">Connecting...</div>
+
                 </div>
+
                 <div class="header-controls">
-                    <button class="icon-btn" id="callChatBtn" title="Call someone">📞 Call</button>
+
                     <button class="icon-btn" id="notifToggleBtn" title="Toggle Notifications">🔔</button>
+
                     <button class="icon-btn" id="themeToggleBtn">🌙</button>
+
                 </div>
+
             </div>
+
+
 
             <div class="main-layout">
+
                 <div class="sidebar">
+
                     <h4>Online Users</h4>
+
                     <div id="userListContainer"></div>
+
                 </div>
+
                 
+
                 <div class="chat-main">
+
                     <div class="messages" id="messagesBox">
+
                         <div class="msg system">Joining network...</div>
+
                     </div>
+
                     <div class="typing-indicator" id="typingIndicator"></div>
+
                 </div>
+
             </div>
+
+
 
             <form class="input-area" id="chatForm">
+
                 <input type="file" id="fileInput">
+
                 <button type="button" class="input-action-btn" id="fileBtn" title="Send File">📎</button>
+
                 <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+
                 <button type="submit" class="send-btn">Send</button>
+
             </form>
 
-            <div id="callOverlay">
-                <div style="text-align: center; font-weight: 700; font-size: 1.2rem;" id="callStatusText">In Call</div>
-                <div class="call-videos">
-                    <video id="localVideo" autoplay muted playsinline></video>
-                    <video id="remoteVideo" autoplay playsinline></video>
-                </div>
-                <div class="call-controls">
-                    <button class="call-btn-action end-call-btn" id="hangUpBtn">End Call</button>
-                </div>
-            </div>
         </div>
+
     </div>
 
-    <script>
-        let peer = null;
-        let username = '';
-        let isHost = false;
-        let connections = []; 
-        let hostConnection = null; 
-        let onlineUsersMap = new Map();
-        let localStream = null;
-        let currentCall = null;
 
-        const HOST_PEER_ID = 'ultimate_p2p_global_room_host_2026';
+
+    <script>
+
+        let peer = null;
+
+        let username = '';
+
+        let isHost = false;
+
+        let connections = []; 
+
+        let hostConnection = null; 
+
+        let onlineUsersMap = new Map();
+
+        let messageLog = [];
+
+        let roomType = 'public'; 
+
+
+
+        const PUBLIC_HOST_PEER_ID = 'xchat_global_room_host_2026';
+
+
 
         const peerConfig = {
+
             config: {
+
                 'iceServers': [
+
                     { urls: 'stun:stun.l.google.com:19302' },
+
                     { urls: 'stun:stun1.l.google.com:19302' }
+
                 ]
+
             }
+
         };
 
+
+
         const setupScreen = document.getElementById('setupScreen');
+
         const chatScreen = document.getElementById('chatScreen');
+
         const usernameInput = document.getElementById('usernameInput');
-        const joinBtn = document.getElementById('joinBtn');
+
+        const mainMenuButtons = document.getElementById('mainMenuButtons');
+
+        const privateOptionsBox = document.getElementById('privateOptionsBox');
+
+        const joinPublicBtn = document.getElementById('joinPublicBtn');
+
+        const privateMenuBtn = document.getElementById('privateMenuBtn');
+
+        const createPrivateBtn = document.getElementById('createPrivateBtn');
+
+        const joinCodeInput = document.getElementById('joinCodeInput');
+
+        const joinPrivateBtn = document.getElementById('joinPrivateBtn');
+
+        const backMenuBtn = document.getElementById('backMenuBtn');
+
+        
+
+        const roomTitle = document.getElementById('roomTitle');
+
         const connectionStatus = document.getElementById('connectionStatus');
+
         const messagesBox = document.getElementById('messagesBox');
+
         const chatForm = document.getElementById('chatForm');
+
         const messageInput = document.getElementById('messageInput');
+
         const themeToggleBtn = document.getElementById('themeToggleBtn');
+
         const notifToggleBtn = document.getElementById('notifToggleBtn');
+
         const userListContainer = document.getElementById('userListContainer');
+
         const typingIndicator = document.getElementById('typingIndicator');
+
         const fileBtn = document.getElementById('fileBtn');
+
         const fileInput = document.getElementById('fileInput');
-        const callChatBtn = document.getElementById('callChatBtn');
-        const callOverlay = document.getElementById('callOverlay');
-        const localVideo = document.getElementById('localVideo');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const hangUpBtn = document.getElementById('hangUpBtn');
-        const callStatusText = document.getElementById('callStatusText');
+
+
+
+        window.addEventListener('beforeunload', () => {
+
+            if (hostConnection) hostConnection.close();
+
+            if (peer) peer.destroy();
+
+        });
+
+
 
         async function requestNotifications() {
+
             if ("Notification" in window) {
+
                 const permission = await Notification.requestPermission();
+
                 if (permission === "granted") notifToggleBtn.innerText = "🔔";
+
                 else notifToggleBtn.innerText = "🔕";
+
             }
+
         }
+
+
 
         notifToggleBtn.addEventListener('click', async () => await requestNotifications());
 
+
+
         themeToggleBtn.addEventListener('click', () => {
+
             const currentTheme = document.documentElement.getAttribute('data-theme');
+
             if (currentTheme === 'dark') {
+
                 document.documentElement.setAttribute('data-theme', 'light');
+
                 themeToggleBtn.innerText = '🌙';
+
             } else {
+
                 document.documentElement.setAttribute('data-theme', 'dark');
+
                 themeToggleBtn.innerText = '☀️';
+
             }
+
         });
+
+
 
         function playBeep() {
+
             try {
+
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
                 const oscillator = audioCtx.createOscillator();
+
                 const gainNode = audioCtx.createGain();
+
                 oscillator.type = 'sine';
+
                 oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+
                 gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+
                 oscillator.connect(gainNode);
+
                 gainNode.connect(audioCtx.destination);
+
                 oscillator.start();
+
                 oscillator.stop(audioCtx.currentTime + 0.15);
+
             } catch (e) {}
+
         }
 
-        joinBtn.addEventListener('click', async () => {
+
+
+        privateMenuBtn.addEventListener('click', () => {
+
             username = usernameInput.value.trim();
+
+            if (!username) { alert('Please enter a nickname first.'); return; }
+
+            mainMenuButtons.classList.add('hidden');
+
+            privateOptionsBox.classList.remove('hidden');
+
+        });
+
+
+
+        backMenuBtn.addEventListener('click', () => {
+
+            privateOptionsBox.classList.add('hidden');
+
+            mainMenuButtons.classList.remove('hidden');
+
+        });
+
+
+
+        joinPublicBtn.addEventListener('click', async () => {
+
+            username = usernameInput.value.trim();
+
             if (!username) { alert('Please enter a nickname.'); return; }
+
             await requestNotifications();
 
+
+
+            roomType = 'public';
+
             setupScreen.style.display = 'none';
+
             chatScreen.style.display = 'flex';
+
+            roomTitle.innerText = "Xchat Public Room";
+
             
-            initPeerConnection();
+
+            initPeerConnection(PUBLIC_HOST_PEER_ID, true);
+
         });
 
-        function initPeerConnection() {
-            peer = new Peer(HOST_PEER_ID, peerConfig);
+
+
+        createPrivateBtn.addEventListener('click', async () => {
+
+            username = usernameInput.value.trim();
+
+            if (!username) { alert('Please enter a nickname.'); return; }
+
+            await requestNotifications();
+
+
+
+            roomType = 'private';
+
+            setupScreen.style.display = 'none';
+
+            chatScreen.style.display = 'flex';
+
+            roomTitle.innerText = "Xchat Private Room";
+
+
+
+            const randomCode = 'xchat_priv_' + Math.random().toString(36).substring(2, 9) + Math.random().toString(36).substring(2, 7);
+
+            initPeerConnection(randomCode, true, true);
+
+        });
+
+
+
+        joinPrivateBtn.addEventListener('click', async () => {
+
+            username = usernameInput.value.trim();
+
+            const joinCode = joinCodeInput.value.trim();
+
+            if (!username) { alert('Please enter a nickname.'); return; }
+
+            if (!joinCode) { alert('Please enter a join code.'); return; }
+
+            await requestNotifications();
+
+
+
+            roomType = 'private';
+
+            setupScreen.style.display = 'none';
+
+            chatScreen.style.display = 'flex';
+
+            roomTitle.innerText = "Xchat Private Room";
+
+
+
+            initPeerConnection(joinCode, false, false);
+
+        });
+
+
+
+        function initPeerConnection(targetId, shouldAttemptHosting, isCreator = false) {
+
+            if (isCreator) {
+
+                peer = new Peer(targetId, peerConfig);
+
+            } else {
+
+                peer = new Peer(peerConfig);
+
+            }
+
+
 
             peer.on('open', (id) => {
-                isHost = true;
-                connectionStatus.innerText = "Hosting room";
-                appendSystemMessage("You created the public room.");
-                
-                onlineUsersMap.set(peer.id, { name: username, peerId: peer.id });
-                setupCallListener();
-                updateUserListUI();
+
+                if (isCreator) {
+
+                    isHost = true;
+
+                    connectionStatus.innerText = "Hosting private room";
+
+                    let welcomeMsg = "You created this private room.";
+
+                    if (roomType === 'private') {
+
+                        welcomeMsg += `\nYour Join Code:`;
+
+                        appendSystemMessage(welcomeMsg);
+
+                        appendCodeMessage(id);
+
+                        messageLog.push({ type: 'SYSTEM', text: welcomeMsg, code: id });
+
+                    } else {
+
+                        appendSystemMessage(welcomeMsg);
+
+                        messageLog.push({ type: 'SYSTEM', text: welcomeMsg });
+
+                    }
+
+                    onlineUsersMap.set(peer.id, { name: username, peerId: peer.id });
+
+                    updateUserListUI();
+
+                } else {
+
+                    isHost = false;
+
+                    connectionStatus.innerText = "Connecting to private room...";
+
+                    hostConnection = peer.connect(targetId);
+
+                    setupClientConnection();
+
+                }
+
             });
+
+
 
             peer.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
+
+                if (err.type === 'unavailable-id' && shouldAttemptHosting && roomType === 'public') {
+
                     isHost = false;
+
                     peer = new Peer(peerConfig);
-                    
+
                     peer.on('open', (id) => {
-                        connectionStatus.innerText = "Connecting to room...";
-                        setupCallListener();
-                        
-                        hostConnection = peer.connect(HOST_PEER_ID);
+
+                        connectionStatus.innerText = "Connecting to public room...";
+
+                        hostConnection = peer.connect(PUBLIC_HOST_PEER_ID);
+
                         setupClientConnection();
+
                     });
+
                 } else {
+
                     console.error("Peer error:", err);
+
                     connectionStatus.innerText = "Error: " + err.type;
+
+                    appendSystemMessage("Connection failed. Check code or try again.");
+
                 }
+
             });
+
+
 
             peer.on('connection', (conn) => {
+
                 connections.push(conn);
+
                 
+
                 conn.on('data', (packet) => {
+
                     handleIncomingPacket(packet, conn);
+
                 });
+
+
 
                 conn.on('close', () => {
+
                     connections = connections.filter(c => c !== conn);
+
                     let leftUserName = "Someone";
+
                     for (let [key, val] of onlineUsersMap.entries()) {
+
                         if (val.conn === conn) { 
+
                             leftUserName = val.name;
+
                             onlineUsersMap.delete(key); 
+
                             break; 
+
                         }
+
                     }
+
                     updateUserListUI();
+
                     if (isHost) {
+
                         const leaveMsg = `${leftUserName} has left.`;
+
                         appendSystemMessage(leaveMsg);
+
+                        messageLog.push({ type: 'SYSTEM', text: leaveMsg });
+
                         broadcastPacket({ type: 'SYSTEM', text: leaveMsg }, null);
+
                         broadcastUserList();
+
                     }
+
                 });
+
             });
+
         }
+
+
 
         function setupClientConnection() {
+
             hostConnection.on('open', () => {
+
                 connectionStatus.innerText = "Connected to room";
-                appendSystemMessage("Successfully joined the live chat!");
+
+                appendSystemMessage("Successfully joined the chat!");
+
                 
+
                 onlineUsersMap.set(peer.id, { name: username, peerId: peer.id });
+
                 hostConnection.send({ type: 'JOIN', sender: username, peerId: peer.id });
+
             });
+
+
 
             hostConnection.on('data', (packet) => {
+
                 handleIncomingPacket(packet, null);
+
             });
+
+
 
             hostConnection.on('close', () => {
+
                 connectionStatus.innerText = "Disconnected";
+
                 appendSystemMessage("The host left. Please refresh.");
+
             });
+
         }
 
-        async function getLocalMedia() {
-            if (localStream) return localStream;
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                return localStream;
-            } catch (err) {
-                console.error("Media error:", err);
-                alert("Could not access camera/mic. Ensure permissions are allowed.");
-                throw err;
-            }
-        }
 
-        function setupCallListener() {
-            peer.on('call', async (incomingCall) => {
-                let callerName = "Someone";
-                for (let [pId, info] of onlineUsersMap.entries()) {
-                    if (pId === incomingCall.peer) { callerName = info.name; break; }
-                }
-
-                const accept = confirm(`Incoming video call from ${callerName}. Accept?`);
-                if (!accept) {
-                    incomingCall.close();
-                    return;
-                }
-
-                try {
-                    const stream = await getLocalMedia();
-                    localVideo.srcObject = stream;
-                    
-                    incomingCall.answer(stream);
-                    currentCall = incomingCall;
-                    
-                    incomingCall.on('stream', (remoteStream) => {
-                        remoteVideo.srcObject = remoteStream;
-                    });
-                    
-                    incomingCall.on('close', () => closeCallScreen());
-                    
-                    callOverlay.style.display = 'flex';
-                    callStatusText.innerText = `Connected with ${callerName}`;
-                } catch (err) {
-                    incomingCall.close();
-                }
-            });
-        }
-
-        async function startCallTo(targetPeerId, targetName) {
-            if (targetPeerId === peer.id) {
-                alert("You cannot call yourself!");
-                return;
-            }
-
-            try {
-                const stream = await getLocalMedia();
-                localVideo.srcObject = stream;
-
-                const call = peer.call(targetPeerId, stream);
-                currentCall = call;
-
-                call.on('stream', (remoteStream) => {
-                    remoteVideo.srcObject = remoteStream;
-                });
-
-                call.on('close', () => closeCallScreen());
-                
-                callOverlay.style.display = 'flex';
-                callStatusText.innerText = `Calling ${targetName}...`;
-            } catch (err) {
-                console.error("Outgoing call error:", err);
-            }
-        }
-
-        callChatBtn.addEventListener('click', () => {
-            const availablePeers = Array.from(onlineUsersMap.values()).filter(u => u.peerId !== peer.id);
-            if (availablePeers.length === 0) {
-                alert("No other users online in the room to call right now!");
-                return;
-            }
-            let target = availablePeers[0];
-            startCallTo(target.peerId, target.name);
-        });
-
-        hangUpBtn.addEventListener('click', () => {
-            if (currentCall) currentCall.close();
-            closeCallScreen();
-        });
-
-        function closeCallScreen() {
-            localVideo.srcObject = null;
-            remoteVideo.srcObject = null;
-            callOverlay.style.display = 'none';
-            currentCall = null;
-        }
 
         function handleIncomingPacket(packet, sourceConn) {
+
             if (isHost) {
+
                 if (packet.type === 'JOIN') {
+
                     sourceConn.userName = packet.sender;
+
                     onlineUsersMap.set(packet.peerId, { name: packet.sender, conn: sourceConn, peerId: packet.peerId });
+
                     
+
                     const joinMsg = `${packet.sender} has joined.`;
+
                     appendSystemMessage(joinMsg);
+
+                    messageLog.push({ type: 'SYSTEM', text: joinMsg });
+
+                    
+
                     broadcastPacket({ type: 'SYSTEM', text: joinMsg }, sourceConn);
+
                     broadcastUserList();
+
+
+
+                    if (sourceConn && sourceConn.open) {
+
+                        sourceConn.send({ type: 'HISTORY', history: messageLog });
+
+                    }
+
+                    return; 
+
+                } else if (packet.type === 'CHAT' || packet.type === 'FILE') {
+
+                    messageLog.push(packet);
+
                 }
+
                 broadcastPacket(packet, sourceConn);
+
             }
+
+
 
             if (packet.sender === username && packet.type !== 'SYSTEM') return;
 
+
+
             if (packet.type === 'CHAT') {
+
                 appendMessage(packet.sender, packet.text, 'received', packet.time);
+
                 playBeep();
+
             } else if (packet.type === 'FILE') {
+
                 appendFileMessage(packet.sender, packet.fileData, packet.fileName, 'received', packet.time);
+
                 playBeep();
+
             } else if (packet.type === 'SYSTEM') {
-                appendSystemMessage(packet.text);
+
+                if (packet.code) {
+
+                    appendSystemMessage(packet.text);
+
+                    appendCodeMessage(packet.code);
+
+                } else {
+
+                    appendSystemMessage(packet.text);
+
+                }
+
+            } else if (packet.type === 'HISTORY') {
+
+                messagesBox.innerHTML = '';
+
+                packet.history.forEach(item => {
+
+                    if (item.type === 'CHAT') {
+
+                        const msgType = (item.sender === username) ? 'sent' : 'received';
+
+                        appendMessage(item.sender, item.text, msgType, item.time);
+
+                    } else if (item.type === 'SYSTEM') {
+
+                        appendSystemMessage(item.text);
+
+                        if (item.code) appendCodeMessage(item.code);
+
+                    } else if (item.type === 'FILE') {
+
+                        const msgType = (item.sender === username) ? 'sent' : 'received';
+
+                        appendFileMessage(item.sender, item.fileData, item.fileName, msgType, item.time);
+
+                    }
+
+                });
+
             } else if (packet.type === 'USER_LIST') {
+
                 onlineUsersMap.clear();
+
                 packet.users.forEach(u => onlineUsersMap.set(u.peerId, u));
+
                 updateUserListUI();
+
             } else if (packet.type === 'TYPING') {
+
                 typingIndicator.innerText = `${packet.sender} is typing...`;
+
                 clearTimeout(window.typingTimer);
+
                 window.typingTimer = setTimeout(() => { typingIndicator.innerText = ''; }, 1500);
+
             }
+
         }
+
+
 
         function broadcastPacket(packet, excludeConn) {
+
             connections.forEach(conn => {
+
                 if (conn !== excludeConn && conn.open) conn.send(packet);
+
             });
+
         }
+
+
 
         function broadcastUserList() {
+
             const userArray = [];
+
             onlineUsersMap.forEach((val) => {
+
                 userArray.push({ name: val.name, peerId: val.peerId });
+
             });
+
             const packet = { type: 'USER_LIST', users: userArray };
+
             updateUserListUI();
+
             
+
             connections.forEach(conn => {
+
                 if (conn.open) conn.send(packet);
+
             });
+
         }
+
+
 
         function updateUserListUI() {
+
             userListContainer.innerHTML = '';
+
             onlineUsersMap.forEach((u) => {
+
                 const userDiv = document.createElement('div');
+
                 userDiv.className = 'user-item';
+
                 const isSelf = u.peerId === peer.id;
-                userDiv.innerHTML = `<span>${u.name}${isSelf ? " (You)" : ""}</span>`;
-                
-                if (!isSelf) {
-                    const btn = document.createElement('button');
-                    btn.className = 'direct-call-btn';
-                    btn.innerText = 'Call';
-                    btn.onclick = () => startCallTo(u.peerId, u.name);
-                    userDiv.appendChild(btn);
-                }
+
+                userDiv.innerText = `${u.name}${isSelf ? " (You)" : ""}`;
+
                 userListContainer.appendChild(userDiv);
+
             });
+
             const totalCount = onlineUsersMap.size;
+
             connectionStatus.innerText = `${totalCount} user${totalCount === 1 ? '' : 's'} online`;
+
         }
+
+
 
         messageInput.addEventListener('input', () => {
+
             const packet = { type: 'TYPING', sender: username };
+
             if (isHost) broadcastPacket(packet, null);
+
             else if (hostConnection && hostConnection.open) hostConnection.send(packet);
+
         });
+
+
 
         chatForm.addEventListener('submit', (e) => {
+
             e.preventDefault();
+
             const text = messageInput.value.trim();
+
             if (!text) return;
 
+
+
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
             const packet = { type: 'CHAT', sender: username, text: text, time: timeStr };
 
+
+
+            messageLog.push(packet);
+
+
+
             if (isHost) {
+
                 appendMessage(username, text, 'sent', timeStr);
+
                 broadcastPacket(packet, null);
+
             } else {
+
                 if (hostConnection && hostConnection.open) {
+
                     hostConnection.send(packet);
+
                     appendMessage(username, text, 'sent', timeStr);
+
                 }
+
             }
+
             messageInput.value = '';
+
         });
+
+
 
         fileBtn.addEventListener('click', () => fileInput.click());
+
         fileInput.addEventListener('change', (e) => {
+
             const file = e.target.files[0];
+
             if (!file) return;
 
+
+
             const reader = new FileReader();
+
             reader.onload = function(evt) {
+
                 const fileData = evt.target.result;
+
                 const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
                 const packet = { type: 'FILE', sender: username, fileData: fileData, fileName: file.name, time: timeStr };
 
+
+
+                messageLog.push(packet);
+
+
+
                 if (isHost) {
+
                     appendFileMessage(username, fileData, file.name, 'sent', timeStr);
+
                     broadcastPacket(packet, null);
+
                 } else {
+
                     if (hostConnection && hostConnection.open) {
+
                         hostConnection.send(packet);
+
                         appendFileMessage(username, fileData, file.name, 'sent', timeStr);
+
                     }
+
                 }
+
                 fileInput.value = '';
+
             };
+
             reader.readAsDataURL(file);
+
         });
 
+
+
         function appendMessage(sender, text, type, time) {
+
             const div = document.createElement('div');
+
             div.className = `msg ${type}`;
+
             div.innerHTML = `
+
                 ${type === 'received' ? `<div style="font-size:0.75rem; font-weight:700; opacity:0.8;">${sender}</div>` : ''}
+
                 <div class="msg-text">${escapeHtml(text)}</div>
+
                 <div class="msg-meta">${time}</div>
+
             `;
+
             messagesBox.appendChild(div);
+
             messagesBox.scrollTop = messagesBox.scrollHeight;
+
         }
+
+
 
         function appendFileMessage(sender, dataUrl, fileName, type, time) {
+
             const div = document.createElement('div');
+
             div.className = `msg ${type}`;
+
             div.innerHTML = `
+
                 ${type === 'received' ? `<div style="font-size:0.75rem; font-weight:700; opacity:0.8;">${sender}</div>` : ''}
+
                 <div class="msg-text">📎 <a href="${dataUrl}" download="${fileName}" style="color:inherit;">${escapeHtml(fileName)}</a></div>
+
                 <img src="${dataUrl}" alt="shared file">
+
                 <div class="msg-meta">${time}</div>
+
             `;
+
             messagesBox.appendChild(div);
+
             messagesBox.scrollTop = messagesBox.scrollHeight;
+
         }
+
+
 
         function appendSystemMessage(text) {
+
             const div = document.createElement('div');
+
             div.className = `msg system`;
+
             div.innerText = text;
+
             messagesBox.appendChild(div);
+
             messagesBox.scrollTop = messagesBox.scrollHeight;
+
         }
 
-        function escapeHtml(text) {
-            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+
+
+        function appendCodeMessage(code) {
+
+            const div = document.createElement('div');
+
+            div.className = `msg system`;
+
+            div.innerHTML = `Share this join code with friends:<div class="code-display-box">${escapeHtml(code)}</div>`;
+
+            messagesBox.appendChild(div);
+
+            messagesBox.scrollTop = messagesBox.scrollHeight;
+
         }
+
+
+
+        function escapeHtml(text) {
+
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+
+        }
+
     </script>
+
 </body>
-</html>
+
+</html> 
+
