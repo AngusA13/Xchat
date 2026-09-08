@@ -124,28 +124,55 @@
         
         .date-divider { text-align: center; font-size: 0.7rem; color: var(--text-secondary); margin: 10px 0; font-weight: 500; }
 
-        .message-row { display: flex; flex-direction: column; max-width: 70%; margin-top: 2px; }
-        .message-row.sent { align-self: flex-end; align-items: flex-end; }
-        .message-row.received { align-self: flex-start; align-items: flex-start; }
+        .message-wrapper { display: flex; flex-direction: column; max-width: 75%; margin-top: 4px; position: relative; }
+        .message-wrapper.sent { align-self: flex-end; align-items: flex-end; }
+        .message-wrapper.received { align-self: flex-start; align-items: flex-start; }
 
-        .bubble { padding: 8px 12px; border-radius: 18px; font-size: 0.9rem; line-height: 1.35; word-break: break-word; position: relative; }
+        .sender-tag { font-size: 0.68rem; color: var(--text-secondary); margin-bottom: 2px; padding: 0 4px; display: none; }
+        .message-wrapper.received.show-sender .sender-tag { display: block; }
+
+        .bubble-container { position: relative; display: flex; align-items: flex-end; }
         
-        .message-row.sent .bubble { background: var(--msg-sent-bg); color: var(--msg-sent-text); border-bottom-right-radius: 4px; }
-        .message-row.received .bubble { background: var(--msg-received-bg); color: var(--msg-received-text); border-bottom-left-radius: 4px; }
+        .bubble { padding: 8px 12px; border-radius: 18px; font-size: 0.9rem; line-height: 1.35; word-break: break-word; position: relative; cursor: pointer; }
         
-        .message-row.system { max-width: 100%; align-self: center; }
-        .bubble.system { background: var(--msg-system-bg); color: var(--msg-system-text); font-size: 0.75rem; text-align: center; border-radius: 0; padding: 4px; }
+        .message-wrapper.sent .bubble { background: var(--msg-sent-bg); color: var(--msg-sent-text); border-bottom-right-radius: 4px; }
+        .message-wrapper.received .bubble { background: var(--msg-received-bg); color: var(--msg-received-text); border-bottom-left-radius: 4px; }
+        
+        .message-wrapper.system { max-width: 100%; align-self: center; }
+        .bubble.system { background: var(--msg-system-bg); color: var(--msg-system-text); font-size: 0.75rem; text-align: center; border-radius: 0; padding: 4px; cursor: default; }
         
         .msg-meta-receipt { font-size: 0.65rem; color: var(--text-secondary); margin-top: 2px; padding: 0 4px; }
         .bubble img { max-width: 100%; border-radius: 12px; margin-top: 4px; }
 
-        .typing-bubble { padding: 8px 14px; background: var(--msg-received-bg); border-radius: 18px; border-bottom-left-radius: 4px; display: flex; gap: 4px; align-items: center; width: fit-content; align-self: flex-start; margin-bottom: 4px; }
-        .typing-dot { width: 6px; height: 6px; background: var(--text-secondary); border-radius: 50%; opacity: 0.4; animation: bounce 1.4s infinite ease-in-out both; }
+        /* Reply Quote Snippet inside bubble */
+        .reply-quote { background: rgba(0,0,0,0.08); border-left: 3px solid var(--primary); padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; margin-bottom: 4px; opacity: 0.85; }
+        .message-wrapper.sent .reply-quote { background: rgba(255,255,255,0.2); border-left-color: white; }
+
+        /* Apple-style reaction badges */
+        .reaction-badge { position: absolute; bottom: -8px; background: var(--container-bg); border: 1px solid var(--sidebar-border); border-radius: 12px; padding: 1px 5px; font-size: 0.75rem; box-shadow: 0 2px 5px rgba(0,0,0,0.15); display: flex; gap: 2px; z-index: 2; user-select: none; }
+        .message-wrapper.sent .reaction-badge { right: 8px; }
+        .message-wrapper.received .reaction-badge { left: 8px; }
+
+        /* Reply banner above input */
+        #replyBanner { display: none; background: var(--hover-bg); padding: 6px 12px; font-size: 0.8rem; border-top: 1px solid var(--sidebar-border); justify-content: space-between; align-items: center; }
+
+        /* Context menu popup */
+        .context-menu { position: absolute; background: var(--container-bg); border: 1px solid var(--sidebar-border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 6px; z-index: 500; display: flex; flex-direction: column; gap: 4px; min-width: 160px; backdrop-filter: blur(10px); }
+        .context-menu-item { padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px; color: var(--text-color); }
+        .context-menu-item:hover { background: var(--primary); color: white; }
+        .context-reactions-row { display: flex; justify-content: space-around; padding: 4px 0; border-bottom: 1px solid var(--sidebar-border); margin-bottom: 4px; }
+        .context-reaction-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 4px; border-radius: 50%; transition: transform 0.1s; }
+        .context-reaction-btn:hover { transform: scale(1.2); background: var(--hover-bg); }
+
+        .typing-bubble { padding: 8px 14px; background: var(--msg-received-bg); border-radius: 18px; border-bottom-left-radius: 4px; display: flex; gap: 4px; align-items: center; width: fit-content; align-self: flex-start; margin-bottom: 4px; font-size: 0.75rem; color: var(--text-secondary); }
+        .typing-dots-box { display: flex; gap: 3px; align-items: center; margin-left: 4px; }
+        .typing-dot { width: 5px; height: 5px; background: var(--text-secondary); border-radius: 50%; opacity: 0.4; animation: bounce 1.4s infinite ease-in-out both; }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
 
-        .input-bar { padding: 12px 16px; background: var(--chat-bg); border-top: 1px solid var(--sidebar-border); display: flex; align-items: center; gap: 10px; }
+        .input-bar-container { display: flex; flex-direction: column; background: var(--chat-bg); border-top: 1px solid var(--sidebar-border); }
+        .input-bar { padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
         .plus-btn { width: 30px; height: 30px; border-radius: 50%; background: var(--hover-bg); border: 1px solid var(--sidebar-border); color: var(--text-color); display: flex; justify-content: center; align-items: center; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; font-weight: 300; }
         .plus-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
 
@@ -156,7 +183,6 @@
         .send-arrow-btn { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: white; border: none; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 0.8rem; flex-shrink: 0; transition: opacity 0.2s; }
         .send-arrow-btn:hover { opacity: 0.8; }
 
-        /* Modal Overlays (Profile & Participant info) */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
         .modal { background: var(--container-bg); padding: 24px; border-radius: 16px; width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; border: 1px solid var(--sidebar-border); box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
         .modal h3 { font-size: 1.15rem; font-weight: 600; }
@@ -266,21 +292,44 @@
                 </div>
 
                 <div class="typing-bubble hidden" id="typingBubble">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
+                    <span id="typingSenderName">Someone</span> is typing
+                    <div class="typing-dots-box">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
                 </div>
 
-                <form class="input-bar" id="chatForm">
-                    <input type="file" id="fileInput">
-                    <button type="button" class="plus-btn" id="fileBtn" title="Send Attachment">+</button>
-                    <div class="input-wrapper">
-                        <input type="text" id="messageInput" placeholder="iMessage" autocomplete="off">
+                <!-- Input bar container with reply banner -->
+                <div class="input-bar-container">
+                    <div id="replyBanner">
+                        <span id="replyBannerText" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Replying to message</span>
+                        <button class="icon-button" id="cancelReplyBtn" style="font-size:0.75rem; font-weight:700;">✕</button>
                     </div>
-                    <button type="submit" class="send-arrow-btn" title="Send">⬆</button>
-                </form>
+                    <form class="input-bar" id="chatForm">
+                        <input type="file" id="fileInput">
+                        <button type="button" class="plus-btn" id="fileBtn" title="Send Attachment">+</button>
+                        <div class="input-wrapper">
+                            <input type="text" id="messageInput" placeholder="iMessage" autocomplete="off">
+                        </div>
+                        <button type="submit" class="send-arrow-btn" title="Send">⬆</button>
+                    </form>
+                </div>
             </div>
         </div>
+    </div>
+
+    <!-- Context Menu Popup for Right-Click -->
+    <div id="bubbleContextMenu" class="context-menu hidden">
+        <div class="context-reactions-row">
+            <button class="context-reaction-btn" data-reaction="❤️">❤️</button>
+            <button class="context-reaction-btn" data-reaction="👍">👍</button>
+            <button class="context-reaction-btn" data-reaction="👎">👎</button>
+            <button class="context-reaction-btn" data-reaction="😂">😂</button>
+            <button class="context-reaction-btn" data-reaction="❗">❗</button>
+        </div>
+        <div class="context-menu-item" id="ctxMenuReply">↩ Reply</div>
+        <div class="context-menu-item" id="ctxMenuSender">👤 Show Sender Info</div>
     </div>
 
     <!-- Profile Edit Modal -->
@@ -311,7 +360,6 @@
             <h3>Conversation Details</h3>
             <p style="font-size: 0.85rem; color: var(--text-secondary);">Active Participants Online:</p>
             <div id="participantsListContainer" style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
-                <!-- Populated dynamically -->
             </div>
             <button class="ios-btn ios-btn-secondary" id="closeInfoModalBtn">Close</button>
         </div>
@@ -327,6 +375,8 @@
         let messageLog = [];
         let currentCall = null;
         let localStream = null;
+        let activeReplyingMessage = null;
+        let contextTargetMessageId = null;
 
         const PUBLIC_ROOM_PREFIX = 'xchat_apple_messages_2026';
         const peerConfig = {
@@ -364,6 +414,7 @@
         const messageInput = document.getElementById('messageInput');
         const themeToggleBtn = document.getElementById('themeToggleBtn');
         const typingBubble = document.getElementById('typingBubble');
+        const typingSenderName = document.getElementById('typingSenderName');
         
         const fileBtn = document.getElementById('fileBtn');
         const fileInput = document.getElementById('fileInput');
@@ -386,12 +437,23 @@
         const closeInfoModalBtn = document.getElementById('closeInfoModalBtn');
         const participantsListContainer = document.getElementById('participantsListContainer');
 
+        const bubbleContextMenu = document.getElementById('bubbleContextMenu');
+        const ctxMenuReply = document.getElementById('ctxMenuReply');
+        const ctxMenuSender = document.getElementById('ctxMenuSender');
+        const replyBanner = document.getElementById('replyBanner');
+        const replyBannerText = document.getElementById('replyBannerText');
+        const cancelReplyBtn = document.getElementById('cancelReplyBtn');
+
         window.addEventListener('DOMContentLoaded', () => {
             const savedSession = localStorage.getItem('xchat_current_user');
             if (savedSession) {
                 currentUser = JSON.parse(savedSession);
                 enterLoggedInState();
             }
+        });
+
+        window.addEventListener('click', () => {
+            bubbleContextMenu.classList.add('hidden');
         });
 
         window.addEventListener('beforeunload', () => {
@@ -497,6 +559,11 @@
         backToMenuBtn.addEventListener('click', () => {
             privateCreationSection.classList.add('hidden');
             chatSelectorSection.classList.remove('hidden');
+        });
+
+        cancelReplyBtn.addEventListener('click', () => {
+            activeReplyingMessage = null;
+            replyBanner.style.display = 'none';
         });
 
         leaveConversationBtn.addEventListener('click', () => {
@@ -637,20 +704,46 @@
                     broadcastUserList();
                     if (sourceConn.open) sourceConn.send({ type: 'HISTORY', history: messageLog });
                     return;
-                } else if (packet.type === 'CHAT' || packet.type === 'FILE') {
-                    messageLog.push(packet);
+                } else if (packet.type === 'CHAT' || packet.type === 'FILE' || packet.type === 'REACTION') {
+                    if (packet.type === 'REACTION') {
+                        const targetMsg = messageLog.find(m => m.id === packet.msgId);
+                        if (targetMsg) {
+                            if (!targetMsg.reactions) targetMsg.reactions = {};
+                            targetMsg.reactions[packet.sender.username] = packet.reaction;
+                        }
+                    } else {
+                        messageLog.push(packet);
+                    }
                 }
                 broadcastPacket(packet, sourceConn);
+            }
+
+            if (packet.type === 'READ_RECEIPT') {
+                const receipts = document.querySelectorAll('.msg-meta-receipt');
+                receipts.forEach(r => r.innerText = 'Read');
+                return;
+            }
+
+            if (packet.type === 'REACTION') {
+                const targetMsg = messageLog.find(m => m.id === packet.msgId);
+                if (targetMsg) {
+                    if (!targetMsg.reactions) targetMsg.reactions = {};
+                    targetMsg.reactions[packet.sender.username] = packet.reaction;
+                }
+                applyReactionToDOM(packet.msgId, packet.reaction);
+                return;
             }
 
             if (packet.sender && packet.sender.username === currentUser.username && packet.type !== 'SYSTEM') return;
 
             if (packet.type === 'CHAT') {
-                appendMessage(packet.sender, packet.text, 'received', packet.time);
+                appendMessage(packet, 'received');
                 sidebarLastMsg.innerText = packet.text;
+                sendReadReceipt();
             } else if (packet.type === 'FILE') {
-                appendFileMessage(packet.sender, packet.fileData, packet.fileName, 'received', packet.time);
+                appendFileMessage(packet, 'received');
                 sidebarLastMsg.innerText = "Sent an attachment";
+                sendReadReceipt();
             } else if (packet.type === 'SYSTEM') {
                 appendSystemMessage(packet.text);
                 if (packet.code) appendCodeMessage(packet.code);
@@ -659,23 +752,31 @@
                 packet.users.forEach(u => onlineUsersMap.set(u.peerId, u));
             } else if (packet.type === 'HISTORY') {
                 messagesBox.innerHTML = '<div class="date-divider">Today</div>';
+                messageLog = packet.history;
                 packet.history.forEach(item => {
                     if (item.type === 'CHAT') {
                         const t = (item.sender.username === currentUser.username) ? 'sent' : 'received';
-                        appendMessage(item.sender, item.text, t, item.time);
+                        appendMessage(item, t);
                     } else if (item.type === 'SYSTEM') {
                         appendSystemMessage(item.text);
                         if (item.code) appendCodeMessage(item.code);
                     } else if (item.type === 'FILE') {
                         const t = (item.sender.username === currentUser.username) ? 'sent' : 'received';
-                        appendFileMessage(item.sender, item.fileData, item.fileName, t, item.time);
+                        appendFileMessage(item, t);
                     }
                 });
             } else if (packet.type === 'TYPING') {
+                typingSenderName.innerText = packet.displayName;
                 typingBubble.classList.remove('hidden');
                 clearTimeout(window.typingTimer);
                 window.typingTimer = setTimeout(() => typingBubble.classList.add('hidden'), 1500);
             }
+        }
+
+        function sendReadReceipt() {
+            const receiptPacket = { type: 'READ_RECEIPT' };
+            if (isHost) broadcastPacket(receiptPacket, null);
+            else if (hostConnection && hostConnection.open) hostConnection.send(receiptPacket);
         }
 
         function broadcastPacket(packet, exclude) {
@@ -757,18 +858,29 @@
             if (!text) return;
 
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const packet = { type: 'CHAT', sender: currentUser, text: text, time: timeStr };
+            const msgId = 'msg_' + Math.random().toString(36).substring(2, 9);
+            
+            const packet = { 
+                type: 'CHAT', 
+                id: msgId,
+                sender: currentUser, 
+                text: text, 
+                time: timeStr,
+                replyTo: activeReplyingMessage ? activeReplyingMessage.text : null
+            };
             messageLog.push(packet);
 
             if (isHost) {
-                appendMessage(currentUser, text, 'sent', timeStr);
+                appendMessage(packet, 'sent');
                 broadcastPacket(packet, null);
             } else if (hostConnection && hostConnection.open) {
                 hostConnection.send(packet);
-                appendMessage(currentUser, text, 'sent', timeStr);
+                appendMessage(packet, 'sent');
             }
             sidebarLastMsg.innerText = text;
             messageInput.value = '';
+            activeReplyingMessage = null;
+            replyBanner.style.display = 'none';
         });
 
         fileBtn.addEventListener('click', () => fileInput.click());
@@ -778,14 +890,15 @@
             const reader = new FileReader();
             reader.onload = (evt) => {
                 const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const packet = { type: 'FILE', sender: currentUser, fileData: evt.target.result, fileName: file.name, time: timeStr };
+                const msgId = 'msg_' + Math.random().toString(36).substring(2, 9);
+                const packet = { type: 'FILE', id: msgId, sender: currentUser, fileData: evt.target.result, fileName: file.name, time: timeStr };
                 messageLog.push(packet);
                 if (isHost) {
-                    appendFileMessage(currentUser, evt.target.result, file.name, 'sent', timeStr);
+                    appendFileMessage(packet, 'sent');
                     broadcastPacket(packet, null);
                 } else if (hostConnection && hostConnection.open) {
                     hostConnection.send(packet);
-                    appendFileMessage(currentUser, evt.target.result, file.name, 'sent', timeStr);
+                    appendFileMessage(packet, 'sent');
                 }
                 sidebarLastMsg.innerText = "Attachment";
                 fileInput.value = '';
@@ -793,34 +906,177 @@
             reader.readAsDataURL(file);
         });
 
-        function appendMessage(sender, text, type, time) {
-            const row = document.createElement('div');
-            row.className = `message-row ${type}`;
+        function buildMessageWrapper(msg, type) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-wrapper ${type} show-sender`;
+            wrapper.dataset.msgId = msg.id;
+
+            const senderTag = document.createElement('div');
+            senderTag.className = 'sender-tag';
+            senderTag.innerText = msg.sender.displayName;
+            wrapper.appendChild(senderTag);
+
+            const container = document.createElement('div');
+            container.className = 'bubble-container';
 
             const bubble = document.createElement('div');
-            bubble.className = `bubble`;
-            bubble.innerText = text;
-            row.appendChild(bubble);
+            bubble.className = 'bubble';
+
+            if (msg.replyTo) {
+                const quote = document.createElement('div');
+                quote.className = 'reply-quote';
+                quote.innerText = msg.replyTo;
+                bubble.appendChild(quote);
+            }
+
+            const txtSpan = document.createElement('span');
+            txtSpan.innerText = msg.text;
+            bubble.appendChild(txtSpan);
+
+            bubble.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                contextTargetMessageId = msg.id;
+                bubbleContextMenu.style.top = `${e.clientY}px`;
+                bubbleContextMenu.style.left = `${e.clientX}px`;
+                bubbleContextMenu.classList.remove('hidden');
+            });
+
+            container.appendChild(bubble);
+
+            if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+                const badge = document.createElement('div');
+                badge.className = 'reaction-badge';
+                badge.id = `reaction_${msg.id}`;
+                badge.innerText = Object.values(msg.reactions).join(' ');
+                container.appendChild(badge);
+            }
+
+            wrapper.appendChild(container);
 
             if (type === 'sent') {
                 const meta = document.createElement('div');
                 meta.className = 'msg-meta-receipt';
                 meta.innerText = `Delivered`;
-                row.appendChild(meta);
+                wrapper.appendChild(meta);
             }
+            return wrapper;
+        }
+
+        function appendMessage(msg, type) {
+            const row = buildMessageWrapper(msg, type);
             messagesBox.appendChild(row);
             messagesBox.scrollTop = messagesBox.scrollHeight;
         }
 
-        function appendFileMessage(sender, data, name, type, time) {
-            const row = document.createElement('div');
-            row.className = `message-row ${type}`;
+        function appendFileMessage(msg, type) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-wrapper ${type} show-sender`;
+            wrapper.dataset.msgId = msg.id;
+
+            const senderTag = document.createElement('div');
+            senderTag.className = 'sender-tag';
+            senderTag.innerText = msg.sender.displayName;
+            wrapper.appendChild(senderTag);
+
+            const container = document.createElement('div');
+            container.className = 'bubble-container';
+
             const bubble = document.createElement('div');
             bubble.className = `bubble`;
-            bubble.innerHTML = `📎 <a href="${data}" download="${name}" style="color:inherit;">${name}</a><br><img src="${data}" alt="img">`;
-            row.appendChild(bubble);
-            messagesBox.appendChild(row);
+            bubble.innerHTML = `📎 <a href="${msg.fileData}" download="${msg.fileName}" style="color:inherit;">${msg.fileName}</a><br><img src="${msg.fileData}" alt="img">`;
+            
+            bubble.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                contextTargetMessageId = msg.id;
+                bubbleContextMenu.style.top = `${e.clientY}px`;
+                bubbleContextMenu.style.left = `${e.clientX}px`;
+                bubbleContextMenu.classList.remove('hidden');
+            });
+
+            container.appendChild(bubble);
+
+            if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+                const badge = document.createElement('div');
+                badge.className = 'reaction-badge';
+                badge.id = `reaction_${msg.id}`;
+                badge.innerText = Object.values(msg.reactions).join(' ');
+                container.appendChild(badge);
+            }
+
+            wrapper.appendChild(container);
+            messagesBox.appendChild(wrapper);
             messagesBox.scrollTop = messagesBox.scrollHeight;
+        }
+
+        ctxMenuReply.addEventListener('click', () => {
+            const targetMsg = messageLog.find(m => m.id === contextTargetMessageId);
+            if (targetMsg) {
+                activeReplyingMessage = targetMsg;
+                replyBannerText.innerText = `Replying to: "${targetMsg.text || targetMsg.fileName}"`;
+                replyBanner.style.display = 'flex';
+                messageInput.focus();
+            }
+            bubbleContextMenu.classList.add('hidden');
+        });
+
+        ctxMenuSender.addEventListener('click', () => {
+            const targetMsg = messageLog.find(m => m.id === contextTargetMessageId);
+            if (targetMsg) {
+                alert(`Sender: ${targetMsg.sender.displayName} (@${targetMsg.sender.username})`);
+            }
+            bubbleContextMenu.classList.add('hidden');
+        });
+
+        document.querySelectorAll('.context-reaction-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const reaction = btn.getAttribute('data-reaction');
+                if (!contextTargetMessageId) return;
+
+                const packet = {
+                    type: 'REACTION',
+                    msgId: contextTargetMessageId,
+                    reaction: reaction,
+                    sender: currentUser
+                };
+
+                const targetMsg = messageLog.find(m => m.id === contextTargetMessageId);
+                if (targetMsg) {
+                    if (!targetMsg.reactions) targetMsg.reactions = {};
+                    targetMsg.reactions[currentUser.username] = reaction;
+                }
+
+                applyReactionToDOM(contextTargetMessageId, reaction);
+
+                if (isHost) {
+                    broadcastPacket(packet, null);
+                } else if (hostConnection && hostConnection.open) {
+                    hostConnection.send(packet);
+                }
+
+                bubbleContextMenu.classList.add('hidden');
+            });
+        });
+
+        function applyReactionToDOM(msgId, reaction) {
+            const wrapper = document.querySelector(`[data-msg-id="${msgId}"]`);
+            if (!wrapper) return;
+            const container = wrapper.querySelector('.bubble-container');
+            let badge = container.querySelector('.reaction-badge');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'reaction-badge';
+                badge.id = `reaction_${msgId}`;
+                container.appendChild(badge);
+            }
+            const targetMsg = messageLog.find(m => m.id === msgId);
+            if (targetMsg && targetMsg.reactions) {
+                badge.innerText = Object.values(targetMsg.reactions).join(' ');
+            } else {
+                badge.innerText = reaction;
+            }
         }
 
         function appendSystemMessage(text) {
