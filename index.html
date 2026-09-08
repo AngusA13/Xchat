@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xchat - P2P Chat with Calls</title>
+    <title>Xchat</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
@@ -56,6 +56,7 @@
         .container { width: 100%; max-width: 950px; height: 92vh; background: var(--container-bg); border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); overflow: hidden; position: relative; border: 1px solid var(--sidebar-border); }
         
         .header { background: var(--header-bg); color: var(--header-text); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--sidebar-border); }
+        .header-left { display: flex; align-items: center; gap: 12px; }
         .header-info { display: flex; flex-direction: column; gap: 2px; }
         .header-info div:first-child { font-size: 1.05rem; font-weight: 700; }
         .header-controls { display: flex; gap: 8px; align-items: center; }
@@ -63,12 +64,18 @@
         .icon-btn { background: var(--hover-bg); border: 1px solid var(--sidebar-border); color: var(--text-color); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease; }
         .icon-btn:hover { background: var(--primary); color: #ffffff; border-color: var(--primary); }
 
+        /* Top Right Profile Avatar Button */
+        .profile-avatar-btn { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--primary); background: var(--hover-bg); cursor: pointer; overflow: hidden; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 0.9rem; flex-shrink: 0; }
+        .profile-avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
+
         .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
         
         .sidebar { width: 220px; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border); padding: 16px; display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem; overflow-y: auto; }
         .sidebar h4 { margin-bottom: 8px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; font-weight: 700; }
         
-        .user-item { padding: 8px 10px; border-radius: 8px; background: var(--container-bg); border: 1px solid var(--sidebar-border); font-weight: 500; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; }
+        .user-item { padding: 8px 10px; border-radius: 8px; background: var(--container-bg); border: 1px solid var(--sidebar-border); font-weight: 500; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .user-info-left { display: flex; align-items: center; gap: 8px; overflow: hidden; }
+        .mini-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; background: #ccc; flex-shrink: 0; display: flex; justify-content: center; align-items: center; font-size: 0.7rem; font-weight: bold; }
         .user-call-btn { background: none; border: none; cursor: pointer; font-size: 0.9rem; }
 
         .chat-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--container-bg); }
@@ -83,6 +90,10 @@
         .msg.received { background: var(--msg-received-bg); color: var(--msg-received-text); align-self: flex-start; border-bottom-left-radius: 4px; }
         .msg.system { background: var(--msg-system-bg); color: var(--msg-system-text); align-self: center; font-size: 0.75rem; border-radius: 6px; text-align: center; padding: 6px 12px; font-weight: 500; box-shadow: none; }
         
+        .msg-header-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+        .msg-avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; background: #ccc; }
+        .msg-sender { font-size: 0.75rem; font-weight: 700; opacity: 0.9; }
+
         .msg-text { line-height: 1.4; }
         .msg-meta { font-size: 0.7rem; opacity: 0.7; align-self: flex-end; margin-top: 2px; }
         .msg img { max-width: 100%; border-radius: 8px; margin-top: 6px; }
@@ -99,7 +110,7 @@
         .send-btn { background: var(--primary); color: #ffffff; border: none; padding: 12px 20px; border-radius: 12px; cursor: pointer; font-weight: 600; flex-shrink: 0; font-size: 0.95rem; transition: background 0.2s; }
         .send-btn:hover { background: var(--primary-hover); }
 
-        #setupScreen { padding: 40px; display: flex; flex-direction: column; gap: 16px; justify-content: center; align-items: center; height: 100%; width: 100%; max-width: 420px; margin: auto; text-align: center; }
+        #setupScreen { padding: 40px; display: flex; flex-direction: column; gap: 16px; justify-content: center; align-items: center; height: 100%; width: 100%; max-width: 420px; margin: auto; text-align: center; position: relative; }
         #setupScreen h2 { font-size: 1.75rem; font-weight: 800; margin-bottom: 4px; }
         #setupScreen p { opacity: 0.6; font-size: 0.9rem; margin-bottom: 8px; }
         #setupScreen input { width: 100%; padding: 14px 16px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--input-text); border-radius: 12px; font-size: 1rem; outline: none; }
@@ -113,23 +124,43 @@
         .private-box { display: flex; flex-direction: column; gap: 10px; width: 100%; }
         .code-display-box { background: var(--hover-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--input-border); font-family: monospace; font-size: 1.1rem; font-weight: bold; word-break: break-all; margin-top: 5px; }
 
+        /* Modal styling for Profile customization */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal { background: var(--container-bg); padding: 24px; border-radius: 16px; width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; border: 1px solid var(--sidebar-border); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal h3 { font-size: 1.25rem; font-weight: 700; }
+        .modal input { width: 100%; padding: 12px 14px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--input-text); border-radius: 10px; font-size: 0.95rem; outline: none; }
+        .avatar-preview-container { display: flex; align-items: center; gap: 16px; }
+        .large-avatar-preview { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #ccc; border: 2px solid var(--primary); display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1.2rem; }
+
         #chatScreen { display: none; flex-direction: column; height: 100%; width: 100%; position: relative; }
-        #fileInput { display: none; }
+        #fileInput, #profilePicInput { display: none; }
     </style>
 </head>
 <body>
 
     <div class="container">
+        <!-- Top-Right Profile button wrapper for setup screen -->
+        <div style="position: absolute; top: 16px; right: 16px; z-index: 10;">
+            <button class="profile-avatar-btn" id="topProfileBtn" title="Account / Profile">👤</button>
+        </div>
+
         <div id="setupScreen">
             <div>
                 <h2>Xchat</h2>
-                <p>Enter your nickname to get started</p>
+                <p id="setupSubtext">Login or Create a local account</p>
             </div>
-            <input type="text" id="usernameInput" placeholder="Your nickname..." autocomplete="off">
             
-            <div class="btn-group" id="mainMenuButtons">
+            <div id="authBox" class="private-box">
+                <input type="text" id="authUsername" placeholder="Username..." autocomplete="off">
+                <input type="password" id="authPassword" placeholder="Password..." autocomplete="off">
+                <button class="primary-btn" id="loginBtn">Login / Create Account</button>
+            </div>
+
+            <div class="btn-group hidden" id="mainMenuButtons">
+                <div style="font-size: 0.9rem; font-weight: 600; opacity: 0.8;" id="loggedInUserDisplay">Logged in as: </div>
                 <button class="primary-btn" id="joinPublicBtn">Join Public Chat</button>
                 <button class="secondary-btn" id="privateMenuBtn">Create / Join Private Chat</button>
+                <button class="secondary-btn" id="logoutBtn" style="border-color:#dc2626; color:#dc2626;">Log Out</button>
             </div>
 
             <div class="private-box hidden" id="privateOptionsBox">
@@ -142,14 +173,18 @@
 
         <div id="chatScreen">
             <div class="header">
-                <div class="header-info">
-                    <div id="roomTitle">Xchat Room</div>
-                    <div style="font-size: 0.75rem; opacity: 0.6; font-weight: 500;" id="connectionStatus">Connecting...</div>
+                <div class="header-left">
+                    <button class="icon-btn" id="homeBtn" title="Go Home">🏠 Home</button>
+                    <div class="header-info">
+                        <div id="roomTitle">Xchat Room</div>
+                        <div style="font-size: 0.75rem; opacity: 0.6; font-weight: 500;" id="connectionStatus">Connecting...</div>
+                    </div>
                 </div>
                 <div class="header-controls">
                     <button class="icon-btn hidden" id="hangUpBtn" style="background:#dc2626; color:white; border-color:#dc2626;">📞 End Call</button>
                     <button class="icon-btn" id="notifToggleBtn" title="Toggle Notifications">🔔</button>
                     <button class="icon-btn" id="themeToggleBtn">🌙</button>
+                    <button class="profile-avatar-btn" id="chatProfileBtn" title="Edit Profile">👤</button>
                 </div>
             </div>
 
@@ -180,9 +215,31 @@
         </div>
     </div>
 
+    <!-- Profile Customization Modal -->
+    <div class="modal-overlay hidden" id="profileModal">
+        <div class="modal">
+            <h3>Edit Profile</h3>
+            <div class="avatar-preview-container">
+                <div class="large-avatar-preview" id="modalAvatarPreview">👤</div>
+                <div>
+                    <input type="file" id="profilePicInput" accept="image/*">
+                    <button class="secondary-btn" type="button" id="uploadAvatarBtn" style="font-size:0.85rem; padding:8px 12px;">Choose Image</button>
+                </div>
+            </div>
+            <div>
+                <label style="font-size:0.8rem; font-weight:600; opacity:0.7;">Display Name</label>
+                <input type="text" id="modalDisplayNameInput" autocomplete="off">
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <button class="primary-btn" id="saveProfileBtn">Save</button>
+                <button class="secondary-btn" id="closeProfileModalBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let peer = null;
-        let username = '';
+        let currentUser = { username: '', displayName: '', avatar: '', password: '' };
         let isHost = false;
         let connections = []; 
         let hostConnection = null; 
@@ -202,10 +259,16 @@
             }
         };
 
+        // DOM Elements
         const setupScreen = document.getElementById('setupScreen');
         const chatScreen = document.getElementById('chatScreen');
-        const usernameInput = document.getElementById('usernameInput');
+        const authBox = document.getElementById('authBox');
+        const authUsername = document.getElementById('authUsername');
+        const authPassword = document.getElementById('authPassword');
+        const loginBtn = document.getElementById('loginBtn');
         const mainMenuButtons = document.getElementById('mainMenuButtons');
+        const loggedInUserDisplay = document.getElementById('loggedInUserDisplay');
+        const logoutBtn = document.getElementById('logoutBtn');
         const privateOptionsBox = document.getElementById('privateOptionsBox');
         const joinPublicBtn = document.getElementById('joinPublicBtn');
         const privateMenuBtn = document.getElementById('privateMenuBtn');
@@ -229,6 +292,27 @@
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         const hangUpBtn = document.getElementById('hangUpBtn');
+        const homeBtn = document.getElementById('homeBtn');
+
+        // Profile Modal Elements
+        const topProfileBtn = document.getElementById('topProfileBtn');
+        const chatProfileBtn = document.getElementById('chatProfileBtn');
+        const profileModal = document.getElementById('profileModal');
+        const modalAvatarPreview = document.getElementById('modalAvatarPreview');
+        const profilePicInput = document.getElementById('profilePicInput');
+        const uploadAvatarBtn = document.getElementById('uploadAvatarBtn');
+        const modalDisplayNameInput = document.getElementById('modalDisplayNameInput');
+        const saveProfileBtn = document.getElementById('saveProfileBtn');
+        const closeProfileModalBtn = document.getElementById('closeProfileModalBtn');
+
+        // Check active session on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedSession = localStorage.getItem('xchat_current_user');
+            if (savedSession) {
+                currentUser = JSON.parse(savedSession);
+                enterLoggedInState();
+            }
+        });
 
         window.addEventListener('beforeunload', () => {
             if (localStream) localStream.getTracks().forEach(track => track.stop());
@@ -236,6 +320,154 @@
             if (peer) peer.destroy();
         });
 
+        // Home Button Logic
+        homeBtn.addEventListener('click', () => {
+            if (confirm("Are you sure you want to leave the chat and go home?")) {
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                }
+                if (currentCall) {
+                    currentCall.close();
+                    currentCall = null;
+                }
+                if (hostConnection) {
+                    hostConnection.close();
+                    hostConnection = null;
+                }
+                if (peer) {
+                    peer.destroy();
+                    peer = null;
+                }
+                connections = [];
+                onlineUsersMap.clear();
+                messageLog = [];
+                messagesBox.innerHTML = '';
+                videoContainer.style.display = 'none';
+                hangUpBtn.classList.add('hidden');
+
+                chatScreen.style.display = 'none';
+                setupScreen.style.display = 'flex';
+                privateOptionsBox.classList.add('hidden');
+                mainMenuButtons.classList.remove('hidden');
+            }
+        });
+
+        // Account Logic via localStorage
+        loginBtn.addEventListener('click', () => {
+            const uName = authUsername.value.trim().toLowerCase();
+            const pass = authPassword.value.trim();
+
+            if (!uName || !pass) {
+                alert('Please enter both username and password.');
+                return;
+            }
+
+            const existingAccountData = localStorage.getItem('xchat_acc_' + uName);
+            if (existingAccountData) {
+                const account = JSON.parse(existingAccountData);
+                if (account.password !== pass) {
+                    alert('Incorrect password for this account.');
+                    return;
+                }
+                currentUser = account;
+            } else {
+                currentUser = {
+                    username: uName,
+                    displayName: authUsername.value.trim(), 
+                    password: pass,
+                    avatar: ''
+                };
+                localStorage.setItem('xchat_acc_' + uName, JSON.stringify(currentUser));
+            }
+
+            localStorage.setItem('xchat_current_user', JSON.stringify(currentUser));
+            enterLoggedInState();
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('xchat_current_user');
+            currentUser = { username: '', displayName: '', avatar: '', password: '' };
+            mainMenuButtons.classList.add('hidden');
+            authBox.classList.remove('hidden');
+            authUsername.value = '';
+            authPassword.value = '';
+            updateProfileUIElements();
+        });
+
+        function enterLoggedInState() {
+            authBox.classList.add('hidden');
+            mainMenuButtons.classList.remove('hidden');
+            loggedInUserDisplay.innerText = `Logged in as: ${currentUser.displayName}`;
+            updateProfileUIElements();
+        }
+
+        function updateProfileUIElements() {
+            const buttons = [topProfileBtn, chatProfileBtn];
+            buttons.forEach(btn => {
+                if (currentUser.avatar) {
+                    btn.innerHTML = `<img src="${currentUser.avatar}" alt="avatar">`;
+                } else if (currentUser.displayName) {
+                    btn.innerText = currentUser.displayName.charAt(0).toUpperCase();
+                } else {
+                    btn.innerText = '👤';
+                }
+            });
+        }
+
+        // Profile Modal Actions
+        function openProfileModal() {
+            if (!currentUser.username) {
+                alert('Please login or create an account first.');
+                return;
+            }
+            modalDisplayNameInput.value = currentUser.displayName;
+            if (currentUser.avatar) {
+                modalAvatarPreview.innerHTML = `<img src="${currentUser.avatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+            } else {
+                modalAvatarPreview.innerHTML = currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : '👤';
+            }
+            profileModal.classList.remove('hidden');
+        }
+
+        topProfileBtn.addEventListener('click', openProfileModal);
+        chatProfileBtn.addEventListener('click', openProfileModal);
+        closeProfileModalBtn.addEventListener('click', () => profileModal.classList.add('hidden'));
+
+        uploadAvatarBtn.addEventListener('click', () => profilePicInput.click());
+        profilePicInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const base64Img = evt.target.result;
+                modalAvatarPreview.innerHTML = `<img src="${base64Img}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                modalAvatarPreview.dataset.tempAvatar = base64Img;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        saveProfileBtn.addEventListener('click', () => {
+            const newName = modalDisplayNameInput.value.trim();
+            if (!newName) {
+                alert('Display name cannot be empty.');
+                return;
+            }
+            currentUser.displayName = newName;
+            if (modalAvatarPreview.dataset.tempAvatar) {
+                currentUser.avatar = modalAvatarPreview.dataset.tempAvatar;
+                delete modalAvatarPreview.dataset.tempAvatar;
+            }
+
+            localStorage.setItem('xchat_acc_' + currentUser.username, JSON.stringify(currentUser));
+            localStorage.setItem('xchat_current_user', JSON.stringify(currentUser));
+
+            updateProfileUIElements();
+            loggedInUserDisplay.innerText = `Logged in as: ${currentUser.displayName}`;
+            profileModal.classList.add('hidden');
+        });
+
+        // Notifications & Theme toggles
         async function requestNotifications() {
             if ("Notification" in window) {
                 const permission = await Notification.requestPermission();
@@ -243,7 +475,6 @@
                 else notifToggleBtn.innerText = "🔕";
             }
         }
-
         notifToggleBtn.addEventListener('click', async () => await requestNotifications());
 
         themeToggleBtn.addEventListener('click', () => {
@@ -273,8 +504,6 @@
         }
 
         privateMenuBtn.addEventListener('click', () => {
-            username = usernameInput.value.trim();
-            if (!username) { alert('Please enter a nickname first.'); return; }
             mainMenuButtons.classList.add('hidden');
             privateOptionsBox.classList.remove('hidden');
         });
@@ -285,10 +514,7 @@
         });
 
         joinPublicBtn.addEventListener('click', async () => {
-            username = usernameInput.value.trim();
-            if (!username) { alert('Please enter a nickname.'); return; }
             await requestNotifications();
-
             roomType = 'public';
             setupScreen.style.display = 'none';
             chatScreen.style.display = 'flex';
@@ -297,10 +523,7 @@
         });
 
         createPrivateBtn.addEventListener('click', async () => {
-            username = usernameInput.value.trim();
-            if (!username) { alert('Please enter a nickname.'); return; }
             await requestNotifications();
-
             roomType = 'private';
             setupScreen.style.display = 'none';
             chatScreen.style.display = 'flex';
@@ -311,9 +534,7 @@
         });
 
         joinPrivateBtn.addEventListener('click', async () => {
-            username = usernameInput.value.trim();
             const joinCode = joinCodeInput.value.trim();
-            if (!username) { alert('Please enter a nickname.'); return; }
             if (!joinCode) { alert('Please enter a join code.'); return; }
             await requestNotifications();
 
@@ -332,7 +553,7 @@
                 isHost = true;
                 connectionStatus.innerText = "Hosting public room";
                 appendSystemMessage("You opened the public room lobby.");
-                onlineUsersMap.set(peer.id, { name: username, peerId: peer.id });
+                onlineUsersMap.set(peer.id, { profile: currentUser, peerId: peer.id });
                 updateUserListUI();
             });
 
@@ -370,7 +591,7 @@
                     appendSystemMessage(welcomeMsg);
                     appendCodeMessage(id);
                     messageLog.push({ type: 'SYSTEM', text: welcomeMsg, code: id });
-                    onlineUsersMap.set(peer.id, { name: username, peerId: peer.id });
+                    onlineUsersMap.set(peer.id, { profile: currentUser, peerId: peer.id });
                     updateUserListUI();
                 } else {
                     isHost = false;
@@ -402,7 +623,7 @@
                     let leftUserName = "Someone";
                     for (let [key, val] of onlineUsersMap.entries()) {
                         if (val.conn === conn) { 
-                            leftUserName = val.name;
+                            leftUserName = val.profile.displayName;
                             onlineUsersMap.delete(key); 
                             break; 
                         }
@@ -450,8 +671,8 @@
                 connectionStatus.innerText = "Connected to room";
                 appendSystemMessage("Successfully joined the chat!");
                 
-                onlineUsersMap.set(peer.id, { name: username, peerId: peer.id });
-                hostConnection.send({ type: 'JOIN', sender: username, peerId: peer.id });
+                onlineUsersMap.set(peer.id, { profile: currentUser, peerId: peer.id });
+                hostConnection.send({ type: 'JOIN', profile: currentUser, peerId: peer.id });
             });
 
             hostConnection.on('data', (packet) => {
@@ -460,7 +681,7 @@
 
             hostConnection.on('close', () => {
                 connectionStatus.innerText = "Disconnected";
-                appendSystemMessage("The host left. Please refresh.");
+                appendSystemMessage("The host left. Please refresh or go home.");
             });
         }
 
@@ -507,10 +728,10 @@
         function handleIncomingPacket(packet, sourceConn) {
             if (isHost) {
                 if (packet.type === 'JOIN') {
-                    sourceConn.userName = packet.sender;
-                    onlineUsersMap.set(packet.peerId, { name: packet.sender, conn: sourceConn, peerId: packet.peerId });
+                    sourceConn.profile = packet.profile;
+                    onlineUsersMap.set(packet.peerId, { profile: packet.profile, conn: sourceConn, peerId: packet.peerId });
                     
-                    const joinMsg = `${packet.sender} has joined.`;
+                    const joinMsg = `${packet.profile.displayName} has joined.`;
                     appendSystemMessage(joinMsg);
                     messageLog.push({ type: 'SYSTEM', text: joinMsg });
                     
@@ -527,7 +748,7 @@
                 broadcastPacket(packet, sourceConn);
             }
 
-            if (packet.sender === username && packet.type !== 'SYSTEM') return;
+            if (packet.sender && packet.sender.username === currentUser.username && packet.type !== 'SYSTEM') return;
 
             if (packet.type === 'CHAT') {
                 appendMessage(packet.sender, packet.text, 'received', packet.time);
@@ -546,13 +767,13 @@
                 messagesBox.innerHTML = '';
                 packet.history.forEach(item => {
                     if (item.type === 'CHAT') {
-                        const msgType = (item.sender === username) ? 'sent' : 'received';
+                        const msgType = (item.sender.username === currentUser.username) ? 'sent' : 'received';
                         appendMessage(item.sender, item.text, msgType, item.time);
                     } else if (item.type === 'SYSTEM') {
                         appendSystemMessage(item.text);
                         if (item.code) appendCodeMessage(item.code);
                     } else if (item.type === 'FILE') {
-                        const msgType = (item.sender === username) ? 'sent' : 'received';
+                        const msgType = (item.sender.username === currentUser.username) ? 'sent' : 'received';
                         appendFileMessage(item.sender, item.fileData, item.fileName, msgType, item.time);
                     }
                 });
@@ -561,7 +782,7 @@
                 packet.users.forEach(u => onlineUsersMap.set(u.peerId, u));
                 updateUserListUI();
             } else if (packet.type === 'TYPING') {
-                typingIndicator.innerText = `${packet.sender} is typing...`;
+                typingIndicator.innerText = `${packet.displayName} is typing...`;
                 clearTimeout(window.typingTimer);
                 window.typingTimer = setTimeout(() => { typingIndicator.innerText = ''; }, 1500);
             }
@@ -576,7 +797,7 @@
         function broadcastUserList() {
             const userArray = [];
             onlineUsersMap.forEach((val) => {
-                userArray.push({ name: val.name, peerId: val.peerId });
+                userArray.push({ profile: val.profile, peerId: val.peerId });
             });
             const packet = { type: 'USER_LIST', users: userArray };
             updateUserListUI();
@@ -593,15 +814,32 @@
                 userDiv.className = 'user-item';
                 const isSelf = u.peerId === peer.id;
                 
+                const leftDiv = document.createElement('div');
+                leftDiv.className = 'user-info-left';
+                
+                const avatarDiv = document.createElement('div');
+                avatarDiv.className = 'mini-avatar';
+                if (u.profile.avatar) {
+                    avatarDiv.innerHTML = `<img src="${u.profile.avatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                } else {
+                    avatarDiv.innerText = u.profile.displayName ? u.profile.displayName.charAt(0).toUpperCase() : '?';
+                }
+
                 const nameSpan = document.createElement('span');
-                nameSpan.innerText = `${u.name}${isSelf ? " (You)" : ""}`;
-                userDiv.appendChild(nameSpan);
+                nameSpan.innerText = `${u.profile.displayName}${isSelf ? " (You)" : ""}`;
+                nameSpan.style.overflow = 'hidden';
+                nameSpan.style.textOverflow = 'ellipsis';
+                nameSpan.style.whiteSpace = 'nowrap';
+
+                leftDiv.appendChild(avatarDiv);
+                leftDiv.appendChild(nameSpan);
+                userDiv.appendChild(leftDiv);
 
                 if (!isSelf) {
                     const callBtn = document.createElement('button');
                     callBtn.className = 'user-call-btn';
                     callBtn.innerText = '📹';
-                    callBtn.title = `Call ${u.name}`;
+                    callBtn.title = `Call ${u.profile.displayName}`;
                     callBtn.onclick = () => startCall(u.peerId);
                     userDiv.appendChild(callBtn);
                 }
@@ -613,7 +851,7 @@
         }
 
         messageInput.addEventListener('input', () => {
-            const packet = { type: 'TYPING', sender: username };
+            const packet = { type: 'TYPING', displayName: currentUser.displayName };
             if (isHost) broadcastPacket(packet, null);
             else if (hostConnection && hostConnection.open) hostConnection.send(packet);
         });
@@ -624,17 +862,17 @@
             if (!text) return;
 
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const packet = { type: 'CHAT', sender: username, text: text, time: timeStr };
+            const packet = { type: 'CHAT', sender: currentUser, text: text, time: timeStr };
 
             messageLog.push(packet);
 
             if (isHost) {
-                appendMessage(username, text, 'sent', timeStr);
+                appendMessage(currentUser, text, 'sent', timeStr);
                 broadcastPacket(packet, null);
             } else {
                 if (hostConnection && hostConnection.open) {
                     hostConnection.send(packet);
-                    appendMessage(username, text, 'sent', timeStr);
+                    appendMessage(currentUser, text, 'sent', timeStr);
                 }
             }
             messageInput.value = '';
@@ -649,17 +887,17 @@
             reader.onload = function(evt) {
                 const fileData = evt.target.result;
                 const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const packet = { type: 'FILE', sender: username, fileData: fileData, fileName: file.name, time: timeStr };
+                const packet = { type: 'FILE', sender: currentUser, fileData: fileData, fileName: file.name, time: timeStr };
 
                 messageLog.push(packet);
 
                 if (isHost) {
-                    appendFileMessage(username, fileData, file.name, 'sent', timeStr);
+                    appendFileMessage(currentUser, fileData, file.name, 'sent', timeStr);
                     broadcastPacket(packet, null);
                 } else {
                     if (hostConnection && hostConnection.open) {
                         hostConnection.send(packet);
-                        appendFileMessage(username, fileData, file.name, 'sent', timeStr);
+                        appendFileMessage(currentUser, fileData, file.name, 'sent', timeStr);
                     }
                 }
                 fileInput.value = '';
@@ -667,11 +905,26 @@
             reader.readAsDataURL(file);
         });
 
-        function appendMessage(sender, text, type, time) {
+        function appendMessage(senderProfile, text, type, time) {
             const div = document.createElement('div');
             div.className = `msg ${type}`;
+            
+            let headerHTML = '';
+            if (type === 'received') {
+                let avatarHTML = senderProfile.avatar 
+                    ? `<img src="${senderProfile.avatar}" class="msg-avatar">` 
+                    : `<div class="msg-avatar" style="display:flex; justify-content:center; align-items:center; font-size:0.6rem; font-weight:bold;">${senderProfile.displayName ? senderProfile.displayName.charAt(0).toUpperCase() : '?'}</div>`;
+                
+                headerHTML = `
+                    <div class="msg-header-row">
+                        ${avatarHTML}
+                        <span class="msg-sender">${escapeHtml(senderProfile.displayName)}</span>
+                    </div>
+                `;
+            }
+
             div.innerHTML = `
-                ${type === 'received' ? `<div style="font-size:0.75rem; font-weight:700; opacity:0.8;">${sender}</div>` : ''}
+                ${headerHTML}
                 <div class="msg-text">${escapeHtml(text)}</div>
                 <div class="msg-meta">${time}</div>
             `;
@@ -679,11 +932,26 @@
             messagesBox.scrollTop = messagesBox.scrollHeight;
         }
 
-        function appendFileMessage(sender, dataUrl, fileName, type, time) {
+        function appendFileMessage(senderProfile, dataUrl, fileName, type, time) {
             const div = document.createElement('div');
             div.className = `msg ${type}`;
+            
+            let headerHTML = '';
+            if (type === 'received') {
+                let avatarHTML = senderProfile.avatar 
+                    ? `<img src="${senderProfile.avatar}" class="msg-avatar">` 
+                    : `<div class="msg-avatar" style="display:flex; justify-content:center; align-items:center; font-size:0.6rem; font-weight:bold;">${senderProfile.displayName ? senderProfile.displayName.charAt(0).toUpperCase() : '?'}</div>`;
+                
+                headerHTML = `
+                    <div class="msg-header-row">
+                        ${avatarHTML}
+                        <span class="msg-sender">${escapeHtml(senderProfile.displayName)}</span>
+                    </div>
+                `;
+            }
+
             div.innerHTML = `
-                ${type === 'received' ? `<div style="font-size:0.75rem; font-weight:700; opacity:0.8;">${sender}</div>` : ''}
+                ${headerHTML}
                 <div class="msg-text">📎 <a href="${dataUrl}" download="${fileName}" style="color:inherit;">${escapeHtml(fileName)}</a></div>
                 <img src="${dataUrl}" alt="shared file">
                 <div class="msg-meta">${time}</div>
@@ -709,8 +977,9 @@
         }
 
         function escapeHtml(text) {
+            if (!text) return '';
             const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
         }
     </script>
 </body>
