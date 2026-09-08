@@ -144,19 +144,15 @@
         .msg-meta-receipt { font-size: 0.65rem; color: var(--text-secondary); margin-top: 2px; padding: 0 4px; }
         .bubble img { max-width: 100%; border-radius: 12px; margin-top: 4px; }
 
-        /* Reply Quote Snippet inside bubble */
         .reply-quote { background: rgba(0,0,0,0.08); border-left: 3px solid var(--primary); padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; margin-bottom: 4px; opacity: 0.85; }
         .message-wrapper.sent .reply-quote { background: rgba(255,255,255,0.2); border-left-color: white; }
 
-        /* Apple-style reaction badges */
         .reaction-badge { position: absolute; bottom: -8px; background: var(--container-bg); border: 1px solid var(--sidebar-border); border-radius: 12px; padding: 1px 5px; font-size: 0.75rem; box-shadow: 0 2px 5px rgba(0,0,0,0.15); display: flex; gap: 2px; z-index: 2; user-select: none; }
         .message-wrapper.sent .reaction-badge { right: 8px; }
         .message-wrapper.received .reaction-badge { left: 8px; }
 
-        /* Reply banner above input */
         #replyBanner { display: none; background: var(--hover-bg); padding: 6px 12px; font-size: 0.8rem; border-top: 1px solid var(--sidebar-border); justify-content: space-between; align-items: center; }
 
-        /* Context menu popup */
         .context-menu { position: absolute; background: var(--container-bg); border: 1px solid var(--sidebar-border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 6px; z-index: 500; display: flex; flex-direction: column; gap: 4px; min-width: 160px; backdrop-filter: blur(10px); }
         .context-menu-item { padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px; color: var(--text-color); }
         .context-menu-item:hover { background: var(--primary); color: white; }
@@ -172,7 +168,7 @@
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
 
         .input-bar-container { display: flex; flex-direction: column; background: var(--chat-bg); border-top: 1px solid var(--sidebar-border); }
-        .input-bar { padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
+        .input-bar { padding: 12px 16px; display: flex; align-items: center; gap: 10px; position: relative; }
         .plus-btn { width: 30px; height: 30px; border-radius: 50%; background: var(--hover-bg); border: 1px solid var(--sidebar-border); color: var(--text-color); display: flex; justify-content: center; align-items: center; font-size: 1.1rem; cursor: pointer; flex-shrink: 0; font-weight: 300; }
         .plus-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
 
@@ -307,8 +303,23 @@
                         <button class="icon-button" id="cancelReplyBtn" style="font-size:0.75rem; font-weight:700;">✕</button>
                     </div>
                     <form class="input-bar" id="chatForm">
+                        <!-- Emoji Picker Popup Container -->
+                        <div id="emojiPickerPopup" class="context-menu hidden" style="bottom: 60px; left: 16px; width: 220px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 8px;">
+                            <button class="context-reaction-btn" type="button">😀</button>
+                            <button class="context-reaction-btn" type="button">😂</button>
+                            <button class="context-reaction-btn" type="button">😍</button>
+                            <button class="context-reaction-btn" type="button">👍</button>
+                            <button class="context-reaction-btn" type="button">🔥</button>
+                            <button class="context-reaction-btn" type="button">🎉</button>
+                            <button class="context-reaction-btn" type="button">❤️</button>
+                            <button class="context-reaction-btn" type="button">😎</button>
+                            <button class="context-reaction-btn" type="button">😢</button>
+                            <button class="context-reaction-btn" type="button">✨</button>
+                        </div>
+
                         <input type="file" id="fileInput">
                         <button type="button" class="plus-btn" id="fileBtn" title="Send Attachment">+</button>
+                        <button type="button" class="plus-btn" id="emojiBtn" title="Emojis">😊</button>
                         <div class="input-wrapper">
                             <input type="text" id="messageInput" placeholder="iMessage" autocomplete="off">
                         </div>
@@ -444,16 +455,27 @@
         const replyBannerText = document.getElementById('replyBannerText');
         const cancelReplyBtn = document.getElementById('cancelReplyBtn');
 
+        const emojiBtn = document.getElementById('emojiBtn');
+        const emojiPickerPopup = document.getElementById('emojiPickerPopup');
+
         window.addEventListener('DOMContentLoaded', () => {
             const savedSession = localStorage.getItem('xchat_current_user');
             if (savedSession) {
                 currentUser = JSON.parse(savedSession);
                 enterLoggedInState();
             }
+            requestNotificationPermission();
         });
+
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+        }
 
         window.addEventListener('click', () => {
             bubbleContextMenu.classList.add('hidden');
+            emojiPickerPopup.classList.add('hidden');
         });
 
         window.addEventListener('beforeunload', () => {
@@ -740,10 +762,25 @@
                 appendMessage(packet, 'received');
                 sidebarLastMsg.innerText = packet.text;
                 sendReadReceipt();
+
+                // Desktop Notification Integration
+                if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                    new Notification(packet.sender.displayName, {
+                        body: packet.text,
+                        icon: packet.sender.avatar || ''
+                    });
+                }
             } else if (packet.type === 'FILE') {
                 appendFileMessage(packet, 'received');
                 sidebarLastMsg.innerText = "Sent an attachment";
                 sendReadReceipt();
+
+                if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                    new Notification(packet.sender.displayName, {
+                        body: "Sent an attachment",
+                        icon: packet.sender.avatar || ''
+                    });
+                }
             } else if (packet.type === 'SYSTEM') {
                 appendSystemMessage(packet.text);
                 if (packet.code) appendCodeMessage(packet.code);
@@ -906,6 +943,20 @@
             reader.readAsDataURL(file);
         });
 
+        // Emoji Picker Integration Logic
+        emojiBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            emojiPickerPopup.classList.toggle('hidden');
+        });
+
+        emojiPickerPopup.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                messageInput.value += e.target.innerText;
+                emojiPickerPopup.classList.add('hidden');
+                messageInput.focus();
+            });
+        });
+
         function buildMessageWrapper(msg, type) {
             const wrapper = document.createElement('div');
             wrapper.className = `message-wrapper ${type} show-sender`;
@@ -1030,6 +1081,7 @@
         });
 
         document.querySelectorAll('.context-reaction-btn').forEach(btn => {
+            if (btn.closest('#emojiPickerPopup')) return; // skip popup buttons here
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const reaction = btn.getAttribute('data-reaction');
