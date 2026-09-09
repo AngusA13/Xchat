@@ -68,7 +68,7 @@
         .dot-minimize { background: #ffbd2e; border: 1px solid #dea123; }
         .dot-zoom { background: #27c93f; border: 1px solid #1aab29; }
 
-        #setupScreen { position: absolute; inset: 32px 0 0 0; background: var(--container-bg); z-index: 100; padding: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        #setupScreen { position: absolute; inset: 32px 0 0 0; background: var(--container-bg); z-index: 100; padding: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; overflow-y: auto; }
         #setupScreen h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.03em; }
         #setupScreen p { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 24px; }
         .auth-box { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 12px; }
@@ -189,10 +189,40 @@
 
         .user-list-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 8px; background: var(--hover-bg); margin-bottom: 6px; }
         .user-info-left { display: flex; align-items: center; gap: 10px; }
+        .admin-running-room { padding: 10px 12px; border-radius: 9px; background: var(--hover-bg); border: 1px solid var(--sidebar-border); }
+        .admin-running-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--sidebar-border); }
+        .admin-running-row:last-child { border-bottom:0; }
+        .admin-running-name { font-weight:600; font-size:0.82rem; }
+        .admin-running-meta { font-size:0.7rem; color:var(--text-secondary); margin-top:2px; word-break:break-all; }
+        .admin-running-badge { font-size:0.68rem; padding:4px 7px; border-radius:999px; background:rgba(52,199,89,.14); color:#34c759; white-space:nowrap; }
+        .admin-running-badge.offline { background:rgba(255,59,48,.12); color:#ff3b30; }
 
+
+        .admin-tools-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .admin-tools-grid .ios-btn { font-size:0.78rem; padding:9px 7px; }
+        .admin-modal-wide { max-width:560px; max-height:80vh; overflow-y:auto; }
+        .admin-stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+        .admin-stat { background:var(--hover-bg); border:1px solid var(--sidebar-border); border-radius:10px; padding:10px; text-align:center; }
+        .admin-stat strong { display:block; font-size:1.15rem; }
+        .admin-stat span { color:var(--text-secondary); font-size:0.7rem; }
+        .admin-section { border-top:1px solid var(--sidebar-border); padding-top:12px; margin-top:4px; }
+        .admin-user-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px; background:var(--hover-bg); border-radius:9px; margin-bottom:6px; }
+        .admin-user-name { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.82rem; }
+        .admin-user-actions { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
+        .admin-mini-btn { border:1px solid var(--sidebar-border); background:var(--container-bg); color:var(--text-color); border-radius:7px; padding:5px 7px; cursor:pointer; font-size:0.7rem; }
+        .admin-mini-btn:hover { background:var(--primary); color:#fff; border-color:var(--primary); }
+        .admin-danger { color:#ff3b30; }
+        .admin-note { color:var(--text-secondary); font-size:0.72rem; line-height:1.4; }
+        @media(max-width:700px){ .admin-tools-grid{grid-template-columns:1fr;} .admin-stat-grid{grid-template-columns:1fr 1fr 1fr;} }
         .hidden { display: none !important; }
         #fileInput, #profilePicInput { display: none; }
-    </style>
+    
+        .admin-clickable-room { cursor: pointer; transition: transform .12s ease, background .12s ease; }
+        .admin-clickable-room:hover { transform: translateY(-1px); background: var(--hover-bg); }
+        .admin-clickable-room:active { transform: scale(.99); }
+        .admin-clickable-room.room-disabled { cursor: default; opacity: .7; }
+        .admin-join-arrow { font-size: 1.4rem; line-height: 1; color: var(--primary); }
+</style>
 </head>
 <body>
 
@@ -224,7 +254,34 @@
                 <button class="ios-btn ios-btn-secondary" id="logoutBtn" style="color:#ff3b30; border-color:#ff3b30;">Sign Out</button>
             </div>
 
+            <!-- Admin Panel on Home Screen -->
+            <div class="auth-box hidden" id="adminPanelSection" style="border: 1px dashed var(--primary); padding: 12px; border-radius: 10px; margin-top: 10px;">
+                <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; color: var(--primary);">Admin Dashboard</h4>
+                <button class="ios-btn ios-btn-secondary" id="adminGlobalBroadcastBtn" style="font-size: 0.8rem; margin-bottom: 6px;">Send Global Announcement</button>
+                <button class="ios-btn ios-btn-secondary" id="adminViewLogsBtn" style="font-size: 0.8rem; margin-bottom: 6px;">View Server Logs</button>
+                <button class="ios-btn ios-btn-secondary" id="adminToggleLockBtn" style="font-size: 0.8rem;">Toggle Room Lock</button>
+            </div>
+
+
+            <div class="auth-box hidden" id="adminQuickActionsSection" style="border:1px solid var(--primary); padding:12px; border-radius:10px; margin-top:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <h4 style="font-size:0.9rem;color:var(--primary);">👑 Secret Admin</h4>
+                    <span style="font-size:0.65rem;color:var(--text-secondary);">LOCAL ADMIN MODE</span>
+                </div>
+                <div class="admin-tools-grid">
+                    <button class="ios-btn ios-btn-secondary" id="adminControlCenterBtn">Control Center</button>
+                    <button class="ios-btn ios-btn-secondary" id="adminRunningChatsBtn">Manage Running Chats</button>
+                    <button class="ios-btn ios-btn-secondary" id="adminClearRoomBtn">Clear Current Chat</button>
+                    <button class="ios-btn ios-btn-secondary" id="adminKickAllBtn">Kick Everyone</button>
+                    <button class="ios-btn ios-btn-secondary" id="adminMuteAllBtn">Mute Everyone</button>
+                    <button class="ios-btn ios-btn-secondary" id="adminUnmuteAllBtn">Unmute Everyone</button>
+                    <button class="ios-btn ios-btn-secondary" id="adminExportLogsBtn">Export Logs</button>
+                    <button class="ios-btn ios-btn-secondary" id="adminReloadUsersBtn">Refresh Everyone</button>
+                    <button class="ios-btn ios-btn-secondary" id="adminWipeDataBtn" style="color:#ff3b30;border-color:#ff3b30;">Wipe Local Data</button>
+                </div>
+            </div>
             <div class="auth-box hidden" id="privateCreationSection">
+                <input type="text" id="privateRoomNameInput" placeholder="Chat name (e.g. Gaming Chat)" maxlength="40" autocomplete="off">
                 <button class="ios-btn" id="createPrivateBtn">Create New Secure Room</button>
                 <input type="text" id="joinCodeInput" placeholder="Paste invitation code..." autocomplete="off">
                 <button class="ios-btn" id="joinPrivateBtn">Join Secure Room</button>
@@ -256,6 +313,8 @@
                 </div>
                 <div class="sidebar-footer">
                     <button class="ios-btn ios-btn-secondary" id="leaveConversationBtn" style="font-size: 0.8rem; padding: 8px;">Switch Rooms / Home</button>
+                    <!-- Host / Admin Room Shutdown Button -->
+                    <button class="ios-btn ios-btn-secondary hidden" id="shutdownChatBtn" style="font-size: 0.8rem; padding: 8px; color: #ff3b30; border-color: #ff3b30;">Shutdown Chat</button>
                 </div>
             </div>
 
@@ -270,6 +329,7 @@
                     </div>
                     <div class="chat-header-actions">
                         <button class="icon-button hidden" id="hangUpBtn" style="color:#ff3b30; font-weight:600;">End Call</button>
+                        <button class="icon-button hidden" id="renameRoomBtn" title="Rename Chat">✏️</button>
                         <button class="icon-button" id="themeToggleBtn" title="Toggle Appearance">🌓</button>
                         <button class="icon-button" id="infoBtn" title="Participants / Details" style="border: 1px solid var(--sidebar-border); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">ℹ</button>
                     </div>
@@ -341,6 +401,75 @@
         </div>
         <div class="context-menu-item" id="ctxMenuReply">↩ Reply</div>
         <div class="context-menu-item" id="ctxMenuSender">👤 Show Sender Info</div>
+        <div class="context-menu-item" id="ctxMenuDelete" style="color: #ff3b30;">🗑 Delete from Everyone</div>
+    </div>
+
+
+    <div class="modal-overlay hidden" id="adminRunningChatsModal">
+        <div class="modal admin-modal-wide">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <div>
+                    <h3>🟢 Manage Running Chats</h3>
+                    <div class="admin-note">Public status is checked live. Private rooms are tracked when they are created on this browser.</div>
+                </div>
+                <button class="icon-button" id="closeAdminRunningChatsModalBtn">✕</button>
+            </div>
+            <div class="admin-stat-grid">
+                <div class="admin-stat"><strong id="runningPublicCount">0</strong><span>Public running</span></div>
+                <div class="admin-stat"><strong id="runningPrivateCount">0</strong><span>Private running</span></div>
+                <div class="admin-stat"><strong id="runningTotalCount">0</strong><span>Total known</span></div>
+            </div>
+            <div class="admin-section">
+                <h4 style="margin-bottom:7px;font-size:0.85rem;">Public Chat</h4>
+                <div id="runningPublicStatus" class="admin-running-room"></div>
+            </div>
+            <div class="admin-section">
+                <h4 style="margin-bottom:7px;font-size:0.85rem;">Known Private Chats</h4>
+                <div id="runningPrivateList"></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px;">
+                <button class="ios-btn ios-btn-secondary" id="refreshRunningChatsBtn">Refresh</button>
+                <button class="ios-btn" id="doneRunningChatsBtn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="adminControlModal">
+        <div class="modal admin-modal-wide">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <div>
+                    <h3>👑 Admin Control Center</h3>
+                    <div class="admin-note">Controls affect this connected PeerJS room. Local account controls affect this browser only.</div>
+                </div>
+                <button class="icon-button" id="closeAdminControlModalBtn">✕</button>
+            </div>
+            <div class="admin-stat-grid">
+                <div class="admin-stat"><strong id="adminOnlineCount">0</strong><span>Online</span></div>
+                <div class="admin-stat"><strong id="adminMessageCount">0</strong><span>Messages</span></div>
+                <div class="admin-stat"><strong id="adminBanCount">0</strong><span>Banned</span></div>
+            </div>
+            <div class="admin-section">
+                <h4 style="margin-bottom:7px;font-size:0.85rem;">Online users</h4>
+                <div id="adminOnlineUsersList"></div>
+            </div>
+            <div class="admin-section">
+                <h4 style="margin-bottom:7px;font-size:0.85rem;">Ban / unban username</h4>
+                <div style="display:flex;gap:7px;">
+                    <input class="modal" style="padding:9px 10px;min-width:0;flex:1;" id="adminBanUsernameInput" placeholder="username" autocomplete="off">
+                    <button class="ios-btn" id="adminBanUsernameBtn" style="width:auto;padding:9px 12px;">Ban</button>
+                </div>
+                <div id="adminBannedUsersList" style="margin-top:8px;"></div>
+            </div>
+            <div class="admin-section">
+                <h4 style="margin-bottom:7px;font-size:0.85rem;">Saved local accounts</h4>
+                <div id="adminLocalAccountsList"></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px;">
+                <button class="ios-btn ios-btn-secondary" id="adminCloseRoomBtn">Close Room</button>
+                <button class="ios-btn ios-btn-secondary" id="adminReloadSelfBtn">Reload This Page</button>
+                <button class="ios-btn" id="adminDoneBtn">Done</button>
+            </div>
+        </div>
     </div>
 
     <!-- Profile Edit Modal -->
@@ -378,7 +507,7 @@
 
     <script>
         let peer = null;
-        let currentUser = { username: '', displayName: '', avatar: '', password: '' };
+        let currentUser = { username: '', displayName: '', avatar: '', password: '', isAdmin: false };
         let isHost = false;
         let connections = [];
         let hostConnection = null;
@@ -388,6 +517,17 @@
         let localStream = null;
         let activeReplyingMessage = null;
         let contextTargetMessageId = null;
+        let roomLocked = false;
+        let currentRoomName = 'Public Chat';
+        let currentRoomType = 'public';
+        let currentRoomId = null;
+        let adminRegistryPeer = null;
+        let adminRegistryConnection = null;
+        let adminRegistryRooms = new Map();
+        let roomRegistryTimer = null;
+        let registryRetryTimer = null;
+        const ADMIN_REGISTRY_PEER_ID = 'xchat_admin_registry_2026';
+        window.isCurrentClientMuted = false;
 
         const PUBLIC_ROOM_PREFIX = 'xchat_apple_messages_2026';
         const peerConfig = {
@@ -402,6 +542,7 @@
         const setupScreen = document.getElementById('setupScreen');
         const authBoxSection = document.getElementById('authBoxSection');
         const chatSelectorSection = document.getElementById('chatSelectorSection');
+        const adminPanelSection = document.getElementById('adminPanelSection');
         const privateCreationSection = document.getElementById('privateCreationSection');
         const authUsername = document.getElementById('authUsername');
         const authPassword = document.getElementById('authPassword');
@@ -411,11 +552,14 @@
         const joinPublicBtn = document.getElementById('joinPublicBtn');
         const openPrivateOptionsBtn = document.getElementById('openPrivateOptionsBtn');
         const createPrivateBtn = document.getElementById('createPrivateBtn');
+        const privateRoomNameInput = document.getElementById('privateRoomNameInput');
+        const renameRoomBtn = document.getElementById('renameRoomBtn');
         const joinCodeInput = document.getElementById('joinCodeInput');
         const joinPrivateBtn = document.getElementById('joinPrivateBtn');
         const backToMenuBtn = document.getElementById('backToMenuBtn');
         
         const leaveConversationBtn = document.getElementById('leaveConversationBtn');
+        const shutdownChatBtn = document.getElementById('shutdownChatBtn');
         const roomTitleDisplay = document.getElementById('roomTitleDisplay');
         const sidebarRoomLabel = document.getElementById('sidebarRoomLabel');
         const sidebarLastMsg = document.getElementById('sidebarLastMsg');
@@ -451,18 +595,268 @@
         const bubbleContextMenu = document.getElementById('bubbleContextMenu');
         const ctxMenuReply = document.getElementById('ctxMenuReply');
         const ctxMenuSender = document.getElementById('ctxMenuSender');
+        const ctxMenuDelete = document.getElementById('ctxMenuDelete');
         const replyBanner = document.getElementById('replyBanner');
         const replyBannerText = document.getElementById('replyBannerText');
         const cancelReplyBtn = document.getElementById('cancelReplyBtn');
 
         const emojiBtn = document.getElementById('emojiBtn');
         const emojiPickerPopup = document.getElementById('emojiPickerPopup');
+        const adminQuickActionsSection = document.getElementById('adminQuickActionsSection');
+        const adminControlModal = document.getElementById('adminControlModal');
+        const adminRunningChatsModal = document.getElementById('adminRunningChatsModal');
+        const runningPublicCount = document.getElementById('runningPublicCount');
+        const runningPrivateCount = document.getElementById('runningPrivateCount');
+        const runningTotalCount = document.getElementById('runningTotalCount');
+        const runningPublicStatus = document.getElementById('runningPublicStatus');
+        const runningPrivateList = document.getElementById('runningPrivateList');
+        const adminOnlineCount = document.getElementById('adminOnlineCount');
+        const adminMessageCount = document.getElementById('adminMessageCount');
+        const adminBanCount = document.getElementById('adminBanCount');
+        const adminOnlineUsersList = document.getElementById('adminOnlineUsersList');
+        const adminBannedUsersList = document.getElementById('adminBannedUsersList');
+        const adminLocalAccountsList = document.getElementById('adminLocalAccountsList');
+        const adminBanUsernameInput = document.getElementById('adminBanUsernameInput');
+        const adminBanUsernameBtn = document.getElementById('adminBanUsernameBtn');
+        const bannedUsers = new Set(JSON.parse(localStorage.getItem('xchat_banned_users') || '[]'));
+        const RUNNING_ROOMS_KEY = 'xchat_running_rooms';
+        let runningRoomHeartbeat = null;
+        let currentTrackedRoomId = null;
+
+        function getRunningRooms() {
+            try { return JSON.parse(localStorage.getItem(RUNNING_ROOMS_KEY) || '[]'); }
+            catch (e) { return []; }
+        }
+
+        function saveRunningRooms(rooms) {
+            localStorage.setItem(RUNNING_ROOMS_KEY, JSON.stringify(rooms));
+        }
+
+        function setRoomDisplay(name) {
+            currentRoomName = String(name || 'Secure Conversation').trim().slice(0, 40) || 'Secure Conversation';
+            roomTitleDisplay.innerText = currentRoomName;
+            sidebarRoomLabel.innerText = currentRoomName;
+        }
+
+        function trackRunningRoom(roomId, type, name) {
+            if (!roomId) return;
+            currentTrackedRoomId = roomId;
+            currentRoomId = roomId;
+            currentRoomType = type;
+            setRoomDisplay(name || 'Secure Conversation');
+            const rooms = getRunningRooms().filter(r => r.id !== roomId);
+            rooms.push({ id: roomId, type, name: currentRoomName, owner: currentUser.username, ownerDisplay: currentUser.displayName, lastSeen: Date.now() });
+            saveRunningRooms(rooms);
+            clearInterval(runningRoomHeartbeat);
+            runningRoomHeartbeat = setInterval(() => {
+                const latest = getRunningRooms().map(r => r.id === roomId ? { ...r, name: currentRoomName, lastSeen: Date.now() } : r);
+                saveRunningRooms(latest);
+            }, 10000);
+            if (type === 'private') startRoomRegistryHeartbeat(roomId, currentRoomName);
+        }
+
+        function untrackRunningRoom(roomId) {
+            const id = roomId || currentTrackedRoomId;
+            if (!id) return;
+            saveRunningRooms(getRunningRooms().filter(r => r.id !== id));
+            if (id === currentTrackedRoomId) {
+                currentTrackedRoomId = null;
+                currentRoomId = null;
+                clearInterval(runningRoomHeartbeat);
+                runningRoomHeartbeat = null;
+                stopRoomRegistryHeartbeat(true);
+            }
+        }
+
+        function cleanupStaleRunningRooms() {
+            const cutoff = Date.now() - 30000;
+            const rooms = getRunningRooms().filter(r => Number(r.lastSeen || 0) > cutoff);
+            saveRunningRooms(rooms);
+            return rooms;
+        }
+
+        // Cross-browser private-room directory. The admin browser exposes a tiny
+        // PeerJS registry; private-room hosts heartbeat to it without any setup.
+        function startAdminRegistry() {
+            if (!currentUser.isAdmin || adminRegistryPeer) return;
+            try {
+                adminRegistryPeer = new Peer(ADMIN_REGISTRY_PEER_ID, peerConfig);
+                adminRegistryPeer.on('open', () => {});
+                adminRegistryPeer.on('connection', conn => {
+                    conn.on('data', packet => {
+                        if (!packet || !packet.type) return;
+                        if (packet.type === 'REGISTER_ROOM' && packet.roomId) {
+                            adminRegistryRooms.set(packet.roomId, {
+                                id: packet.roomId,
+                                type: 'private',
+                                name: String(packet.name || 'Private Chat').slice(0, 40),
+                                owner: String(packet.owner || 'unknown'),
+                                ownerDisplay: String(packet.ownerDisplay || packet.owner || 'unknown'),
+                                lastSeen: Date.now()
+                            });
+                            sendAdminRegistrySnapshot(conn);
+                            refreshRunningChats();
+                        } else if (packet.type === 'UNREGISTER_ROOM' && packet.roomId) {
+                            adminRegistryRooms.delete(packet.roomId);
+                            refreshRunningChats();
+                        } else if (packet.type === 'REGISTRY_REQUEST') {
+                            sendAdminRegistrySnapshot(conn);
+                        }
+                    });
+                    conn.on('close', () => refreshRunningChats());
+                });
+                adminRegistryPeer.on('error', () => {
+                    try { adminRegistryPeer.destroy(); } catch (e) {}
+                    adminRegistryPeer = null;
+                    clearTimeout(registryRetryTimer);
+                    registryRetryTimer = setTimeout(startAdminRegistry, 2500);
+                });
+            } catch (e) {
+                adminRegistryPeer = null;
+                clearTimeout(registryRetryTimer);
+                registryRetryTimer = setTimeout(startAdminRegistry, 2500);
+            }
+        }
+
+        function sendAdminRegistrySnapshot(conn) {
+            if (!conn || !conn.open) return;
+            const rooms = [...adminRegistryRooms.values()].filter(r => Date.now() - r.lastSeen < 20000);
+            try { conn.send({ type: 'REGISTRY_SNAPSHOT', rooms }); } catch (e) {}
+        }
+
+        function connectToAdminRegistry() {
+            if (!currentRoomId || currentRoomType !== 'private' || !isHost) return;
+            if (adminRegistryConnection && adminRegistryConnection.open) {
+                try { adminRegistryConnection.send({ type: 'REGISTER_ROOM', roomId: currentRoomId, name: currentRoomName, owner: currentUser.username, ownerDisplay: currentUser.displayName }); } catch (e) {}
+                return;
+            }
+            try {
+                const conn = peer && peer.connect(ADMIN_REGISTRY_PEER_ID);
+                if (!conn) return;
+                adminRegistryConnection = conn;
+                conn.on('open', () => {
+                    conn.send({ type: 'REGISTER_ROOM', roomId: currentRoomId, name: currentRoomName, owner: currentUser.username, ownerDisplay: currentUser.displayName });
+                    conn.send({ type: 'REGISTRY_REQUEST' });
+                });
+                conn.on('data', packet => {
+                    if (packet && packet.type === 'REGISTRY_SNAPSHOT') return;
+                });
+                conn.on('close', () => { adminRegistryConnection = null; });
+                conn.on('error', () => { adminRegistryConnection = null; });
+            } catch (e) { adminRegistryConnection = null; }
+        }
+
+        function startRoomRegistryHeartbeat(roomId, name) {
+            clearInterval(roomRegistryTimer);
+            currentRoomId = roomId;
+            currentRoomType = 'private';
+            currentRoomName = name || currentRoomName;
+            connectToAdminRegistry();
+            roomRegistryTimer = setInterval(() => {
+                if (!currentRoomId || !isHost) return;
+                connectToAdminRegistry();
+            }, 5000);
+        }
+
+        function stopRoomRegistryHeartbeat(unregister) {
+            clearInterval(roomRegistryTimer);
+            roomRegistryTimer = null;
+            if (unregister && adminRegistryConnection && adminRegistryConnection.open && currentRoomId) {
+                try { adminRegistryConnection.send({ type: 'UNREGISTER_ROOM', roomId: currentRoomId }); } catch (e) {}
+            }
+            try { if (adminRegistryConnection) adminRegistryConnection.close(); } catch (e) {}
+            adminRegistryConnection = null;
+        }
+
+        function updateRegistryRoomName() {
+            if (!isHost || currentRoomType !== 'private' || !adminRegistryConnection || !adminRegistryConnection.open) return;
+            try { adminRegistryConnection.send({ type: 'REGISTER_ROOM', roomId: currentRoomId, name: currentRoomName, owner: currentUser.username, ownerDisplay: currentUser.displayName }); } catch (e) {}
+        }
+
+        async function checkPublicChatRunning() {
+            if (peer && (peer.id === PUBLIC_ROOM_PREFIX || isHost)) return true;
+            return new Promise(resolve => {
+                let finished = false;
+                let probe = null;
+                const done = (running) => {
+                    if (finished) return;
+                    finished = true;
+                    try { if (probe) probe.destroy(); } catch (e) {}
+                    resolve(running);
+                };
+                try {
+                    probe = new Peer(PUBLIC_ROOM_PREFIX, peerConfig);
+                    probe.on('open', () => done(false));
+                    probe.on('error', err => {
+                        if (err && err.type === 'unavailable-id') done(true);
+                        else done(false);
+                    });
+                    setTimeout(() => done(false), 3500);
+                } catch (e) { done(false); }
+            });
+        }
+
+        async function refreshRunningChats() {
+            if (!currentUser.isAdmin) return;
+            const localRooms = cleanupStaleRunningRooms();
+            const registryCutoff = Date.now() - 20000;
+            for (const [id, room] of adminRegistryRooms) {
+                if (room.lastSeen < registryCutoff) adminRegistryRooms.delete(id);
+            }
+            const publicRunning = await checkPublicChatRunning();
+            const merged = new Map();
+            localRooms.filter(r => r.type === 'private').forEach(r => merged.set(r.id, r));
+            adminRegistryRooms.forEach((r, id) => merged.set(id, r));
+            const privateRooms = [...merged.values()].filter(r => r.type === 'private');
+            runningPublicCount.innerText = publicRunning ? '1' : '0';
+            runningPrivateCount.innerText = String(privateRooms.length);
+            runningTotalCount.innerText = String(privateRooms.length + (publicRunning ? 1 : 0));
+            runningPublicStatus.innerHTML = `
+                <div class="admin-running-row admin-clickable-room ${publicRunning ? '' : 'room-disabled'}" ${publicRunning ? `onclick="joinRunningChat('public','${PUBLIC_ROOM_PREFIX}','Public Chat')"` : ''}>
+                    <div><div class="admin-running-name">🌐 Public Chat Lobby</div><div class="admin-running-meta">${PUBLIC_ROOM_PREFIX}</div></div>
+                    <div style="display:flex;align-items:center;gap:8px;"><span class="admin-running-badge ${publicRunning ? '' : 'offline'}">${publicRunning ? 'RUNNING' : 'OFFLINE'}</span>${publicRunning ? '<span class="admin-join-arrow">›</span>' : ''}</div>
+                </div>`;
+            if (!privateRooms.length) {
+                runningPrivateList.innerHTML = '<div class="admin-note">No running private chats found yet. Private hosts automatically appear here while the admin page is open.</div>';
+            } else {
+                runningPrivateList.innerHTML = privateRooms.map(r => `
+                    <div class="admin-running-row admin-clickable-room" onclick="joinRunningChat('private','${String(r.id).replace(/'/g, "\\'")}','${String(r.name || 'Private Chat').replace(/'/g, "\\'")}')">
+                        <div><div class="admin-running-name">🔒 ${String(r.name || 'Private Chat')}</div><div class="admin-running-meta">${String(r.id)}<br>Owner: @${String(r.owner || 'unknown')}</div></div>
+                        <div style="display:flex;align-items:center;gap:8px;"><span class="admin-running-badge">RUNNING</span><span class="admin-join-arrow">›</span></div>
+                    </div>`).join('');
+            }
+        }
+
+        function joinRunningChat(type, roomId, roomName) {
+            if (!currentUser.isAdmin || !roomId) return;
+            adminRunningChatsModal.classList.add('hidden');
+
+            try {
+                if (peer || hostConnection || currentTrackedRoomId) executeCleanUp();
+            } catch (e) {}
+
+            if (type === 'public') {
+                joinPublicBtn.click();
+                return;
+            }
+
+            joinCodeInput.value = roomId;
+            setupScreen.style.display = 'none';
+            currentRoomId = roomId;
+            currentRoomType = 'private';
+            setRoomDisplay(roomName || 'Secure Conversation');
+            shutdownChatBtn.classList.toggle('hidden', !currentUser.isAdmin);
+            initPeerConnection(roomId, false, false);
+        }
+
+        window.joinRunningChat = joinRunningChat;
 
         window.addEventListener('DOMContentLoaded', () => {
             const savedSession = localStorage.getItem('xchat_current_user');
             if (savedSession) {
                 currentUser = JSON.parse(savedSession);
                 enterLoggedInState();
+                if (currentUser.isAdmin) startAdminRegistry();
             }
             requestNotificationPermission();
         });
@@ -479,8 +873,13 @@
         });
 
         window.addEventListener('beforeunload', () => {
+            if (isHost && currentRoomType === 'private' && adminRegistryConnection && adminRegistryConnection.open && currentRoomId) {
+                try { adminRegistryConnection.send({ type: 'UNREGISTER_ROOM', roomId: currentRoomId }); } catch (e) {}
+            }
+            untrackRunningRoom();
             if (localStream) localStream.getTracks().forEach(track => track.stop());
             if (peer) peer.destroy();
+            if (adminRegistryPeer) adminRegistryPeer.destroy();
         });
 
         loginBtn.addEventListener('click', () => {
@@ -488,13 +887,28 @@
             const pass = authPassword.value.trim();
             if (!uName || !pass) { alert('Enter username & password.'); return; }
 
+        
+            if (false) {
+                currentUser = { 
+                    username: 'angusthe67man', 
+                    displayName: 'Admin (Angus)', 
+                    avatar: '', 
+                    password: pass,
+                    isAdmin: true 
+                };
+                localStorage.setItem('xchat_current_user', JSON.stringify(currentUser));
+                enterLoggedInState();
+                startAdminRegistry();
+                return;
+            }
+
             const savedAcc = localStorage.getItem('xchat_acc_' + uName);
             if (savedAcc) {
                 const acc = JSON.parse(savedAcc);
                 if (acc.password !== pass) { alert('Incorrect password.'); return; }
                 currentUser = acc;
             } else {
-                currentUser = { username: uName, displayName: authUsername.value.trim(), password: pass, avatar: '' };
+                currentUser = { username: uName, displayName: authUsername.value.trim(), password: pass, avatar: '', isAdmin: false };
                 localStorage.setItem('xchat_acc_' + uName, JSON.stringify(currentUser));
             }
             localStorage.setItem('xchat_current_user', JSON.stringify(currentUser));
@@ -503,8 +917,11 @@
 
         logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('xchat_current_user');
-            currentUser = { username: '', displayName: '', avatar: '', password: '' };
+            currentUser = { username: '', displayName: '', avatar: '', password: '', isAdmin: false };
             chatSelectorSection.classList.add('hidden');
+            adminPanelSection.classList.add('hidden');
+            adminQuickActionsSection.classList.add('hidden');
+            adminControlModal.classList.add('hidden');
             authBoxSection.classList.remove('hidden');
             authUsername.value = ''; authPassword.value = '';
         });
@@ -514,6 +931,14 @@
             chatSelectorSection.classList.remove('hidden');
             loggedInUserDisplay.innerText = `Signed in as ${currentUser.displayName}`;
             updateUserAvatarUI();
+
+            if (currentUser.isAdmin) {
+                adminPanelSection.classList.remove('hidden');
+                adminQuickActionsSection.classList.remove('hidden');
+            } else {
+                adminPanelSection.classList.add('hidden');
+                adminQuickActionsSection.classList.add('hidden');
+            }
         }
 
         function updateUserAvatarUI() {
@@ -556,7 +981,9 @@
                 currentUser.avatar = modalAvatarPreview.dataset.tempAvatar;
                 delete modalAvatarPreview.dataset.tempAvatar;
             }
-            localStorage.setItem('xchat_acc_' + currentUser.username, JSON.stringify(currentUser));
+            if (!currentUser.isAdmin) {
+                localStorage.setItem('xchat_acc_' + currentUser.username, JSON.stringify(currentUser));
+            }
             localStorage.setItem('xchat_current_user', JSON.stringify(currentUser));
             updateUserAvatarUI();
             loggedInUserDisplay.innerText = `Signed in as ${currentUser.displayName}`;
@@ -576,11 +1003,14 @@
 
         openPrivateOptionsBtn.addEventListener('click', () => {
             chatSelectorSection.classList.add('hidden');
+            adminPanelSection.classList.add('hidden');
+            adminQuickActionsSection.classList.add('hidden');
             privateCreationSection.classList.remove('hidden');
         });
         backToMenuBtn.addEventListener('click', () => {
             privateCreationSection.classList.add('hidden');
             chatSelectorSection.classList.remove('hidden');
+            if (currentUser.isAdmin) { adminPanelSection.classList.remove('hidden'); adminQuickActionsSection.classList.remove('hidden'); }
         });
 
         cancelReplyBtn.addEventListener('click', () => {
@@ -590,45 +1020,300 @@
 
         leaveConversationBtn.addEventListener('click', () => {
             if (confirm("Leave current conversation?")) {
-                if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-                if (currentCall) { currentCall.close(); currentCall = null; }
-                if (hostConnection) { hostConnection.close(); hostConnection = null; }
-                if (peer) { peer.destroy(); peer = null; }
-                connections = [];
-                onlineUsersMap.clear();
-                messageLog = [];
-                messagesBox.innerHTML = '<div class="date-divider">Today</div>';
-                videoContainer.style.display = 'none';
-                hangUpBtn.classList.add('hidden');
-
-                setupScreen.style.display = 'flex';
-                privateCreationSection.classList.add('hidden');
-                chatSelectorSection.classList.remove('hidden');
+                executeCleanUp();
             }
         });
 
+        shutdownChatBtn.addEventListener('click', () => {
+            if (!currentUser.isAdmin) {
+                alert("Only the admin can shut down this chat.");
+                return;
+            }
+            if (confirm("Are you sure you want to shut down this entire chat session for everyone?")) {
+                const shutdownPacket = { type: 'SHUTDOWN' };
+                
+                if (isHost) {
+                    // Forcefully close every active connection from the host side, 
+                    // which immediately kicks older clients off even if they don't know the packet type.
+                    connections.forEach(c => {
+                        if (c && c.open) {
+                            try { c.send(shutdownPacket); } catch (e) {}
+                            c.close();
+                        }
+                    });
+                } else {
+                    if (hostConnection && hostConnection.open) {
+                        hostConnection.send(shutdownPacket);
+                    }
+                }
+
+                executeCleanUp("The chat session has been shut down by the admin.");
+            }
+        });
+
+        function executeCleanUp(reason) {
+            if (currentTrackedRoomId) untrackRunningRoom(currentTrackedRoomId);
+            else stopRoomRegistryHeartbeat(true);
+            currentRoomId = null;
+            currentRoomType = 'public';
+            currentRoomName = 'Public Chat';
+            renameRoomBtn.classList.add('hidden');
+
+            if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+            if (currentCall) { currentCall.close(); currentCall = null; }
+            if (hostConnection) { hostConnection.close(); hostConnection = null; }
+            if (peer) { peer.destroy(); peer = null; }
+            connections = [];
+            onlineUsersMap.clear();
+            messageLog = [];
+            messagesBox.innerHTML = '<div class="date-divider">Today</div>';
+            videoContainer.style.display = 'none';
+            hangUpBtn.classList.add('hidden');
+            shutdownChatBtn.classList.add('hidden');
+            roomLocked = false;
+            window.isCurrentClientMuted = false;
+            untrackRunningRoom();
+
+            setupScreen.style.display = 'flex';
+            privateCreationSection.classList.add('hidden');
+            chatSelectorSection.classList.remove('hidden');
+            if (currentUser.isAdmin) adminPanelSection.classList.remove('hidden');
+            if (reason) alert(reason);
+        }
+
         joinPublicBtn.addEventListener('click', () => {
             setupScreen.style.display = 'none';
-            roomTitleDisplay.innerText = "Public Chat Lobby";
-            sidebarRoomLabel.innerText = "Public Chat Lobby";
+            currentRoomId = PUBLIC_ROOM_PREFIX;
+            currentRoomType = 'public';
+            setRoomDisplay('Public Chat Lobby');
+            renameRoomBtn.classList.add('hidden');
+            if (currentUser.isAdmin) shutdownChatBtn.classList.remove('hidden');
             initPublicPeerConnection();
         });
 
         createPrivateBtn.addEventListener('click', () => {
+            const chosenName = privateRoomNameInput.value.trim().slice(0, 40) || 'Secure Private Room';
+            privateRoomNameInput.value = chosenName;
             setupScreen.style.display = 'none';
-            roomTitleDisplay.innerText = "Secure Conversation";
-            sidebarRoomLabel.innerText = "Secure Room";
+            currentRoomType = 'private';
+            setRoomDisplay(chosenName);
+            if (currentUser.isAdmin) shutdownChatBtn.classList.remove('hidden');
             const code = 'imsg_priv_' + Math.random().toString(36).substring(2, 9);
+            currentRoomId = code;
+            trackRunningRoom(code, 'private', chosenName);
             initPeerConnection(code, true, true);
         });
 
         joinPrivateBtn.addEventListener('click', () => {
             const code = joinCodeInput.value.trim();
-            if (!code) { alert('Enter invitation code.'); return; }
+            if (!code) { 
+                alert('Enter invitation code.'); 
+                return; 
+            }
+
             setupScreen.style.display = 'none';
-            roomTitleDisplay.innerText = "Secure Conversation";
-            sidebarRoomLabel.innerText = "Secure Room";
+            currentRoomId = code;
+            currentRoomType = 'private';
+            setRoomDisplay('Secure Conversation');
+            if (currentUser.isAdmin) shutdownChatBtn.classList.remove('hidden');
             initPeerConnection(code, false, false);
+        });
+
+        renameRoomBtn.addEventListener('click', () => {
+            if (!currentUser.isAdmin || !currentRoomId) return;
+            const nextName = prompt('Enter a new chat name:', currentRoomName);
+            if (nextName === null) return;
+            const cleanName = nextName.trim().slice(0, 40);
+            if (!cleanName) return;
+            currentRoomName = cleanName;
+            setRoomDisplay(cleanName);
+            if (isHost) {
+                broadcastPacket({ type: 'ROOM_INFO', roomId: currentRoomId, name: cleanName }, null);
+                updateRegistryRoomName();
+            } else {
+                adminBroadcastPacket({ type: 'ROOM_INFO', roomId: currentRoomId, name: cleanName });
+            }
+        });
+
+        function saveBannedUsers() {
+            localStorage.setItem('xchat_banned_users', JSON.stringify([...bannedUsers]));
+        }
+
+        function adminBroadcastPacket(packet) {
+            if (!currentUser.isAdmin) return false;
+            if (isHost) { broadcastPacket(packet, null); return true; }
+            if (hostConnection && hostConnection.open) { hostConnection.send(packet); return true; }
+            alert('Join a room first so the admin action can reach other users.');
+            return false;
+        }
+
+        function adminClearCurrentRoom() {
+            if (!currentUser.isAdmin) return;
+            if (!confirm('Clear every message in the current room for everyone?')) return;
+            messageLog = [];
+            messagesBox.innerHTML = '<div class="date-divider">Today</div>';
+            adminBroadcastPacket({ type:'CLEAR_CHAT' });
+            refreshAdminCenter();
+        }
+
+        function adminKickEveryone() {
+            if (!currentUser.isAdmin) return;
+            if (!confirm('Kick every other user from this room?')) return;
+            adminBroadcastPacket({ type:'KICK_ALL', exceptId: peer ? peer.id : null });
+            if (isHost) {
+                connections.forEach(c => { try { if(c.open) c.send({type:'SHUTDOWN'}); } catch(e){} try{c.close();}catch(e){} });
+                connections = [];
+                onlineUsersMap.clear();
+                if (peer) onlineUsersMap.set(peer.id,{profile:currentUser,peerId:peer.id});
+                broadcastUserList();
+            }
+            appendSystemMessage('👑 Admin removed everyone else from the room.');
+            refreshAdminCenter();
+        }
+
+        function adminMuteAll(status) {
+            if (!currentUser.isAdmin) return;
+            const packet = { type: status ? 'MUTE_ALL' : 'UNMUTE_ALL' };
+            if (isHost) {
+                onlineUsersMap.forEach(v => { if(v.profile && v.profile.username !== currentUser.username) v.isMuted = status; });
+                broadcastPacket(packet, null);
+            } else adminBroadcastPacket(packet);
+            window.isCurrentClientMuted = false;
+            appendSystemMessage(status ? '👑 Admin muted everyone else.' : '👑 Admin unmuted everyone.');
+            refreshAdminCenter();
+        }
+
+        function adminExportLogs() {
+            if (!currentUser.isAdmin) return;
+            const lines = messageLog.map(m => {
+                if (m.type === 'CHAT') return `[${m.time || ''}] ${m.sender?.displayName || m.sender?.username || 'Unknown'}: ${m.text || ''}`;
+                if (m.type === 'FILE') return `[${m.time || ''}] ${m.sender?.displayName || 'Unknown'}: Attachment`;
+                return `[SYSTEM] ${m.text || ''}`;
+            });
+            const blob = new Blob([lines.join('\n') || 'No messages recorded.'], {type:'text/plain'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `messages-admin-log-${Date.now()}.txt`; a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+
+        function adminWipeLocalData() {
+            if (!currentUser.isAdmin) return;
+            if (!confirm('Delete all locally saved non-admin accounts, the current session, and saved admin ban data on this browser?')) return;
+            Object.keys(localStorage).filter(k => k.startsWith('xchat_acc_')).forEach(k => localStorage.removeItem(k));
+            localStorage.removeItem('xchat_current_user');
+            localStorage.removeItem('xchat_banned_users');
+            alert('Local account/chat data was cleared. The admin page will reload.');
+            location.reload();
+        }
+
+        function adminReloadEveryone() {
+            if (!currentUser.isAdmin) return;
+            if (!confirm('Reload every connected client?')) return;
+            adminBroadcastPacket({type:'RELOAD_CLIENT', targetId:'ALL'});
+            if (isHost) location.reload();
+        }
+
+        function adminBanUsername(username) {
+            username = String(username || '').trim().toLowerCase();
+            if (!username || username === currentUser.username) return;
+            bannedUsers.add(username); saveBannedUsers();
+            const target = [...onlineUsersMap.entries()].find(([id,v]) => String((v.profile||v).username || '').toLowerCase() === username);
+            if (target) {
+                const [peerId] = target;
+                adminBroadcastPacket({type:'BAN_USER', username, targetId:peerId});
+                if (isHost) { const u=onlineUsersMap.get(peerId); try{u?.conn?.send({type:'KICK',targetId:peerId});u?.conn?.close();}catch(e){} onlineUsersMap.delete(peerId); broadcastUserList(); }
+            }
+            refreshAdminCenter();
+        }
+
+        function adminUnbanUsername(username) {
+            bannedUsers.delete(String(username).toLowerCase()); saveBannedUsers(); refreshAdminCenter();
+        }
+
+        function refreshAdminCenter() {
+            if (!currentUser.isAdmin) return;
+            adminOnlineCount.innerText = onlineUsersMap.size;
+            adminMessageCount.innerText = messageLog.length;
+            adminBanCount.innerText = bannedUsers.size;
+            adminOnlineUsersList.innerHTML = '';
+            if (!onlineUsersMap.size) adminOnlineUsersList.innerHTML = '<div class="admin-note">No online users visible yet.</div>';
+            onlineUsersMap.forEach((val, peerId) => {
+                const profile = val.profile || val;
+                const row = document.createElement('div'); row.className='admin-user-row';
+                const name = document.createElement('div'); name.className='admin-user-name'; name.innerText = `${profile.displayName || profile.username || 'Unknown'} (@${profile.username || '?'})${peerId===peer?.id?' • You':''}`;
+                const actions = document.createElement('div'); actions.className='admin-user-actions';
+                if (peerId !== peer?.id) {
+                    const mute=document.createElement('button'); mute.className='admin-mini-btn'; mute.innerText=val.isMuted?'Unmute':'Mute'; mute.onclick=()=>{toggleMuteUser(peerId);refreshAdminCenter();}; actions.appendChild(mute);
+                    const ban=document.createElement('button'); ban.className='admin-mini-btn admin-danger'; ban.innerText='Ban'; ban.onclick=()=>{if(confirm(`Ban ${profile.displayName || profile.username}?`)) adminBanUsername(profile.username);}; actions.appendChild(ban);
+                    const kick=document.createElement('button'); kick.className='admin-mini-btn admin-danger'; kick.innerText='Kick'; kick.onclick=()=>{kickUser(peerId);refreshAdminCenter();}; actions.appendChild(kick);
+                }
+                row.append(name,actions); adminOnlineUsersList.appendChild(row);
+            });
+            adminBannedUsersList.innerHTML='';
+            if (!bannedUsers.size) adminBannedUsersList.innerHTML='<div class="admin-note">No usernames are banned on this browser.</div>';
+            bannedUsers.forEach(username=>{ const row=document.createElement('div');row.className='admin-user-row'; const n=document.createElement('div');n.className='admin-user-name';n.innerText='@'+username; const b=document.createElement('button');b.className='admin-mini-btn';b.innerText='Unban';b.onclick=()=>adminUnbanUsername(username);row.append(n,b);adminBannedUsersList.appendChild(row); });
+            adminLocalAccountsList.innerHTML='';
+            const accounts=Object.keys(localStorage).filter(k=>k.startsWith('xchat_acc_')).map(k=>k.slice(10));
+            if (!accounts.length) adminLocalAccountsList.innerHTML='<div class="admin-note">No saved non-admin accounts in this browser.</div>';
+            accounts.forEach(username=>{ const row=document.createElement('div');row.className='admin-user-row';const n=document.createElement('div');n.className='admin-user-name';n.innerText='@'+username;const b=document.createElement('button');b.className='admin-mini-btn admin-danger';b.innerText='Delete';b.onclick=()=>{if(confirm(`Delete local account @${username}?`)){localStorage.removeItem('xchat_acc_'+username);refreshAdminCenter();}};row.append(n,b);adminLocalAccountsList.appendChild(row); });
+        }
+
+        function toggleRoomLock() {
+            if (!isHost && !currentUser.isAdmin) return;
+            roomLocked = !roomLocked;
+            const notice = roomLocked ? "🔒 Room locked by admin. No new users can join." : "🔓 Room unlocked by admin.";
+            appendSystemMessage(notice);
+            if (isHost) broadcastPacket({ type: 'SYSTEM', text: notice }, null);
+        }
+
+        function toggleMuteUser(targetPeerId) {
+            if (!isHost && !currentUser.isAdmin) return;
+            const targetUser = onlineUsersMap.get(targetPeerId);
+            if (!targetUser) return;
+
+            targetUser.isMuted = !targetUser.isMuted;
+            
+            if (targetUser.conn && targetUser.conn.open) {
+                targetUser.conn.send({ type: 'MUTE_STATUS', status: targetUser.isMuted });
+            }
+            
+            appendSystemMessage(`${targetUser.profile.displayName} was ${targetUser.isMuted ? 'muted' : 'unmuted'} by admin.`);
+        }
+
+
+        document.getElementById('adminControlCenterBtn').addEventListener('click', () => { if(!currentUser.isAdmin)return; refreshAdminCenter(); adminControlModal.classList.remove('hidden'); });
+        document.getElementById('adminRunningChatsBtn').addEventListener('click', async () => { if(!currentUser.isAdmin)return; adminRunningChatsModal.classList.remove('hidden'); await refreshRunningChats(); });
+        document.getElementById('closeAdminRunningChatsModalBtn').addEventListener('click', () => adminRunningChatsModal.classList.add('hidden'));
+        document.getElementById('doneRunningChatsBtn').addEventListener('click', () => adminRunningChatsModal.classList.add('hidden'));
+        document.getElementById('refreshRunningChatsBtn').addEventListener('click', refreshRunningChats);
+        document.getElementById('closeAdminControlModalBtn').addEventListener('click', () => adminControlModal.classList.add('hidden'));
+        document.getElementById('adminDoneBtn').addEventListener('click', () => adminControlModal.classList.add('hidden'));
+        document.getElementById('adminClearRoomBtn').addEventListener('click', adminClearCurrentRoom);
+        document.getElementById('adminKickAllBtn').addEventListener('click', adminKickEveryone);
+        document.getElementById('adminMuteAllBtn').addEventListener('click', () => adminMuteAll(true));
+        document.getElementById('adminUnmuteAllBtn').addEventListener('click', () => adminMuteAll(false));
+        document.getElementById('adminExportLogsBtn').addEventListener('click', adminExportLogs);
+        document.getElementById('adminReloadUsersBtn').addEventListener('click', adminReloadEveryone);
+        document.getElementById('adminWipeDataBtn').addEventListener('click', adminWipeLocalData);
+        document.getElementById('adminBanUsernameBtn').addEventListener('click', () => { adminBanUsername(adminBanUsernameInput.value); adminBanUsernameInput.value=''; });
+        document.getElementById('adminCloseRoomBtn').addEventListener('click', () => { adminControlModal.classList.add('hidden'); document.getElementById('shutdownChatBtn').click(); });
+        document.getElementById('adminReloadSelfBtn').addEventListener('click', () => location.reload());
+
+        document.getElementById('adminToggleLockBtn').addEventListener('click', () => {
+            toggleRoomLock();
+        });
+
+        document.getElementById('adminGlobalBroadcastBtn').addEventListener('click', () => {
+            if (!currentUser.isAdmin) return;
+            const notice = prompt("Enter announcement text for all rooms:");
+            if (!notice) return;
+            const packet = { type: 'SYSTEM', text: `[ADMIN BROADCAST]: ${notice}` };
+            appendSystemMessage(packet.text);
+            if (isHost) broadcastPacket(packet, null);
+        });
+
+        document.getElementById('adminViewLogsBtn').addEventListener('click', () => {
+            if (!currentUser.isAdmin) return;
+            alert(`Total messages recorded in session: ${messageLog.length}`);
         });
 
         function initPublicPeerConnection() {
@@ -638,6 +1323,7 @@
                 connectionStatus.innerText = "Hosting • 1 online";
                 appendSystemMessage("Connected to Public Lobby.");
                 onlineUsersMap.set(peer.id, { profile: currentUser, peerId: peer.id });
+                trackRunningRoom(PUBLIC_ROOM_PREFIX, 'public', 'Public Chat Lobby');
             });
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
@@ -654,6 +1340,9 @@
         }
 
         function initPeerConnection(targetId, isHosting, isCreator) {
+            currentRoomId = targetId;
+            if (isCreator) currentRoomType = 'private';
+            renameRoomBtn.classList.toggle('hidden', !(isCreator || currentUser.isAdmin));
             peer = isCreator ? new Peer(targetId, peerConfig) : new Peer(peerConfig);
             peer.on('open', (id) => {
                 if (isCreator) {
@@ -675,6 +1364,14 @@
 
         function setupCommonPeerListeners() {
             peer.on('connection', (conn) => {
+                if (roomLocked && !currentUser.isAdmin) {
+                    conn.on('open', () => {
+                        conn.send({ type: 'SHUTDOWN' });
+                        setTimeout(() => conn.close(), 500);
+                    });
+                    return;
+                }
+
                 connections.push(conn);
                 conn.on('data', (packet) => handleIncomingPacket(packet, conn));
                 conn.on('close', () => {
@@ -711,12 +1408,114 @@
             hostConnection.on('close', () => {
                 connectionStatus.innerText = "Disconnected";
                 appendSystemMessage("Host connection lost.");
+                executeCleanUp("The chat session was closed by the administrator.");
             });
         }
 
         function handleIncomingPacket(packet, sourceConn) {
+            if (packet.type === 'ROOM_INFO') {
+                if (packet.name) {
+                    currentRoomId = packet.roomId || currentRoomId;
+                    currentRoomType = 'private';
+                    setRoomDisplay(packet.name);
+                    const rooms = getRunningRooms().map(r => r.id === currentRoomId ? { ...r, name: currentRoomName, lastSeen: Date.now() } : r);
+                    saveRunningRooms(rooms);
+                }
+                if (isHost) {
+                    currentRoomName = String(packet.name || currentRoomName).trim().slice(0, 40) || currentRoomName;
+                    setRoomDisplay(currentRoomName);
+                    broadcastPacket({ type: 'ROOM_INFO', roomId: currentRoomId, name: currentRoomName }, sourceConn);
+                    updateRegistryRoomName();
+                }
+                return;
+            }
+
+            // Force immediate shutdown for all clients, regardless of version
+            if (packet.type === 'CLEAR_CHAT') {
+                messageLog = [];
+                messagesBox.innerHTML = '<div class="date-divider">Today</div>';
+                if (isHost) broadcastPacket(packet, sourceConn);
+                return;
+            }
+
+            if (packet.type === 'MUTE_ALL') {
+                window.isCurrentClientMuted = true;
+                if (isHost) broadcastPacket(packet, sourceConn);
+                return;
+            }
+
+            if (packet.type === 'UNMUTE_ALL') {
+                window.isCurrentClientMuted = false;
+                if (isHost) broadcastPacket(packet, sourceConn);
+                return;
+            }
+
+            if (packet.type === 'RELOAD_CLIENT') {
+                if (packet.targetId === peer.id || packet.targetId === 'ALL') location.reload();
+                return;
+            }
+
+            if (packet.type === 'BAN_USER') {
+                if (packet.username) {
+                    bannedUsers.add(String(packet.username).toLowerCase());
+                    localStorage.setItem('xchat_banned_users', JSON.stringify([...bannedUsers]));
+                }
+                if (packet.targetId === peer.id) {
+                    executeCleanUp('You have been banned from this chat by the administrator.');
+                    return;
+                }
+                if (isHost) broadcastPacket(packet, sourceConn);
+                return;
+            }
+
+            if (packet.type === 'SHUTDOWN') {
+                executeCleanUp("The chat session was closed by the administrator.");
+                return;
+            }
+
+            if (packet.type === 'KICK_ALL') {
+                if (packet.exceptId !== peer.id) executeCleanUp('You were removed from this chat by the administrator.');
+                return;
+            }
+
+            if (packet.type === 'KICK' && packet.targetId === peer.id) {
+                executeCleanUp("You have been removed from this chat by the administrator.");
+                return;
+            }
+
+            if (packet.type === 'DELETE_MSG') {
+                messageLog = messageLog.filter(m => m.id !== packet.msgId);
+                const domElement = document.querySelector(`[data-msg-id="${packet.msgId}"]`);
+                if (domElement) domElement.remove();
+                if (isHost) broadcastPacket(packet, sourceConn);
+                return;
+            }
+
+            if (packet.type === 'MUTE_ALL') { window.isCurrentClientMuted = packet.targetId === peer.id ? false : true; return; }
+            if (packet.type === 'UNMUTE_ALL') { window.isCurrentClientMuted = false; return; }
+
+            if (packet.type === 'MUTE_STATUS') {
+                window.isCurrentClientMuted = packet.status;
+                if (window.isCurrentClientMuted) {
+                    alert("You have been muted by the administrator.");
+                } else {
+                    alert("You have been unmuted by the administrator.");
+                }
+                return;
+            }
+
             if (isHost) {
                 if (packet.type === 'JOIN') {
+                    if (bannedUsers.has(String(packet.profile.username || '').toLowerCase())) {
+                        sourceConn.send({ type: 'KICK', targetId: packet.peerId });
+                        setTimeout(() => sourceConn.close(), 300);
+                        return;
+                    }
+                    if (roomLocked && !packet.profile.isAdmin) {
+                        sourceConn.send({ type: 'SHUTDOWN' });
+                        setTimeout(() => sourceConn.close(), 500);
+                        return;
+                    }
                     sourceConn.profile = packet.profile;
                     onlineUsersMap.set(packet.peerId, { profile: packet.profile, conn: sourceConn, peerId: packet.peerId });
                     const msg = `${packet.profile.displayName} joined.`;
@@ -724,7 +1523,16 @@
                     messageLog.push({ type: 'SYSTEM', text: msg });
                     broadcastPacket({ type: 'SYSTEM', text: msg }, sourceConn);
                     broadcastUserList();
-                    if (sourceConn.open) sourceConn.send({ type: 'HISTORY', history: messageLog });
+                    if (sourceConn.open) {
+                        sourceConn.send({ type: 'ROOM_INFO', roomId: peer.id, name: currentRoomName });
+                        sourceConn.send({ type: 'HISTORY', history: messageLog });
+                    }
+                    return;
+                } else if (packet.type === 'KICK_ALL') {
+                    broadcastPacket(packet, sourceConn);
+                    return;
+                } else if (packet.type === 'MUTE_ALL' || packet.type === 'UNMUTE_ALL' || packet.type === 'CLEAR_CHAT' || packet.type === 'RELOAD_CLIENT' || packet.type === 'BAN_USER') {
+                    broadcastPacket(packet, sourceConn);
                     return;
                 } else if (packet.type === 'CHAT' || packet.type === 'FILE' || packet.type === 'REACTION') {
                     if (packet.type === 'REACTION') {
@@ -762,25 +1570,10 @@
                 appendMessage(packet, 'received');
                 sidebarLastMsg.innerText = packet.text;
                 sendReadReceipt();
-
-                // Desktop Notification Integration
-                if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-                    new Notification(packet.sender.displayName, {
-                        body: packet.text,
-                        icon: packet.sender.avatar || ''
-                    });
-                }
             } else if (packet.type === 'FILE') {
                 appendFileMessage(packet, 'received');
                 sidebarLastMsg.innerText = "Sent an attachment";
                 sendReadReceipt();
-
-                if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-                    new Notification(packet.sender.displayName, {
-                        body: "Sent an attachment",
-                        icon: packet.sender.avatar || ''
-                    });
-                }
             } else if (packet.type === 'SYSTEM') {
                 appendSystemMessage(packet.text);
                 if (packet.code) appendCodeMessage(packet.code);
@@ -810,6 +1603,22 @@
             }
         }
 
+        function kickUser(targetPeerId) {
+            if (!isHost && !currentUser.isAdmin) return;
+            const targetUser = onlineUsersMap.get(targetPeerId);
+            if (!targetUser) return;
+
+            const kickPacket = { type: 'KICK', targetId: targetPeerId };
+            if (targetUser.conn && targetUser.conn.open) {
+                targetUser.conn.send(kickPacket);
+                targetUser.conn.close();
+            }
+
+            onlineUsersMap.delete(targetPeerId);
+            broadcastUserList();
+            appendSystemMessage(`${targetUser.profile.displayName} was banned from the chat.`);
+        }
+
         function sendReadReceipt() {
             const receiptPacket = { type: 'READ_RECEIPT' };
             if (isHost) broadcastPacket(receiptPacket, null);
@@ -821,7 +1630,7 @@
         }
         function broadcastUserList() {
             const users = [];
-            onlineUsersMap.forEach((v, k) => users.push({ profile: v.profile || v, peerId: k }));
+            onlineUsersMap.forEach((v, k) => users.push({ profile: v.profile || v, peerId: k, isMuted: v.isMuted || false }));
             connectionStatus.innerText = `Connected • ${users.length} online`;
             const packet = { type: 'USER_LIST', users };
             connections.forEach(c => { if (c.open) c.send(packet); });
@@ -831,6 +1640,7 @@
             participantsListContainer.innerHTML = '';
             onlineUsersMap.forEach((val, peerId) => {
                 const profile = val.profile || val;
+                const isUserAdmin = profile.isAdmin;
                 const row = document.createElement('div');
                 row.className = 'user-list-item';
                 
@@ -849,23 +1659,59 @@
                 const nameSpan = document.createElement('span');
                 nameSpan.style.fontSize = '0.85rem';
                 nameSpan.style.fontWeight = '500';
-                nameSpan.innerText = profile.displayName + (peerId === peer.id ? ' (You)' : '');
+                nameSpan.innerText = profile.displayName + (peerId === peer.id ? ' (You)' : '') + (isUserAdmin ? ' 👑 [Admin]' : '');
                 
                 left.appendChild(av);
                 left.appendChild(nameSpan);
                 row.appendChild(left);
 
+                const actionsDiv = document.createElement('div');
+                actionsDiv.style.display = 'flex';
+                actionsDiv.style.gap = '4px';
+
                 if (peerId !== peer.id) {
                     const callBtn = document.createElement('button');
                     callBtn.className = 'ios-btn';
                     callBtn.style.fontSize = '0.75rem';
-                    callBtn.style.padding = '4px 10px';
+                    callBtn.style.padding = '4px 8px';
                     callBtn.style.width = 'auto';
-                    callBtn.innerText = 'FaceTime Call';
+                    callBtn.innerText = 'Call';
                     callBtn.onclick = () => startVideoCall(peerId);
-                    row.appendChild(callBtn);
+                    actionsDiv.appendChild(callBtn);
                 }
 
+                if ((isHost || currentUser.isAdmin) && peerId !== peer.id) {
+                    const isMuted = val.isMuted;
+                    const muteBtn = document.createElement('button');
+                    muteBtn.className = 'ios-btn';
+                    muteBtn.style.fontSize = '0.75rem';
+                    muteBtn.style.padding = '4px 8px';
+                    muteBtn.style.width = 'auto';
+                    muteBtn.style.background = isMuted ? '#34c759' : '#ff9500';
+                    muteBtn.innerText = isMuted ? 'Unmute' : 'Mute';
+                    muteBtn.onclick = () => {
+                        toggleMuteUser(peerId);
+                        infoModal.classList.add('hidden');
+                    };
+                    actionsDiv.appendChild(muteBtn);
+
+                    const banBtn = document.createElement('button');
+                    banBtn.className = 'ios-btn';
+                    banBtn.style.fontSize = '0.75rem';
+                    banBtn.style.padding = '4px 8px';
+                    banBtn.style.width = 'auto';
+                    banBtn.style.background = '#ff3b30';
+                    banBtn.innerText = 'Ban';
+                    banBtn.onclick = () => {
+                        if (confirm(`Are you sure you want to ban ${profile.displayName}?`)) {
+                            kickUser(peerId);
+                            infoModal.classList.add('hidden');
+                        }
+                    };
+                    actionsDiv.appendChild(banBtn);
+                }
+
+                row.appendChild(actionsDiv);
                 participantsListContainer.appendChild(row);
             });
         }
@@ -891,6 +1737,11 @@
 
         chatForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            if (window.isCurrentClientMuted) {
+                alert("You are currently muted by an administrator.");
+                return;
+            }
+
             const text = messageInput.value.trim();
             if (!text) return;
 
@@ -922,6 +1773,10 @@
 
         fileBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', (e) => {
+            if (window.isCurrentClientMuted) {
+                alert("You are currently muted by an administrator.");
+                return;
+            }
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -943,7 +1798,6 @@
             reader.readAsDataURL(file);
         });
 
-        // Emoji Picker Integration Logic
         emojiBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             emojiPickerPopup.classList.toggle('hidden');
@@ -1080,8 +1934,32 @@
             bubbleContextMenu.classList.add('hidden');
         });
 
+        ctxMenuDelete.addEventListener('click', () => {
+            if (!currentUser.isAdmin && !isHost) {
+                alert("Only admins can delete messages for everyone.");
+                bubbleContextMenu.classList.add('hidden');
+                return;
+            }
+
+            if (!contextTargetMessageId) return;
+
+            const deletePacket = { type: 'DELETE_MSG', msgId: contextTargetMessageId };
+            
+            messageLog = messageLog.filter(m => m.id !== contextTargetMessageId);
+            const domElement = document.querySelector(`[data-msg-id="${contextTargetMessageId}"]`);
+            if (domElement) domElement.remove();
+
+            if (isHost) {
+                broadcastPacket(deletePacket, null);
+            } else if (hostConnection && hostConnection.open) {
+                hostConnection.send(deletePacket);
+            }
+
+            bubbleContextMenu.classList.add('hidden');
+        });
+
         document.querySelectorAll('.context-reaction-btn').forEach(btn => {
-            if (btn.closest('#emojiPickerPopup')) return; // skip popup buttons here
+            if (btn.closest('#emojiPickerPopup')) return;
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const reaction = btn.getAttribute('data-reaction');
