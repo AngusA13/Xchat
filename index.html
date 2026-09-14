@@ -1501,17 +1501,29 @@
         async function createPrivateChat() {
             const checkboxes = document.querySelectorAll(".private-user-checkbox:checked");
             const selectedUsers = Array.from(checkboxes).map(cb => cb.value).filter(Boolean);
-            selectedUsers.push(currentUser);
-            if (selectedUsers.length < 2) return alert("Select at least one contact.");
-            selectedUsers.sort();
-            const privateRoomId = "chat_" + selectedUsers.join("_");
-            const rows = selectedUsers.map(username => ({ room_id: privateRoomId, username }));
-            const { error } = await xchatSupabase.from("room_members").upsert(rows, { onConflict: "room_id,username" });
-            if (error) return alert("Could not create chat: " + error.message);
-            await xchatSupabase.from("room_preferences").upsert({ user_id: (await xchatSupabase.auth.getUser()).data.user.id, room_id: privateRoomId, display_name: privateRoomId }, { onConflict: "user_id,room_id" });
+            if (selectedUsers.length < 1) return alert("Select at least one contact.");
+            if (!currentUser) return alert("You must be signed in to create a chat.");
+
+            // The database RPC creates the whole private room atomically.
+            // This avoids the RLS error that happened when the browser tried
+            // to insert membership rows for the other people directly.
+            const uniqueUsers = [...new Set(selectedUsers.filter(u => u && u !== currentUser))];
+            if (!uniqueUsers.length) return alert("Select at least one contact.");
+
+            const { data: privateRoomId, error } = await xchatSupabase.rpc("xchat_create_private_room", {
+                p_usernames: uniqueUsers
+            });
+
+            if (error) {
+                console.error("XChat private room error:", error);
+                return alert("Could not create chat: " + error.message);
+            }
+
+            if (!privateRoomId) return alert("Could not create chat: the server did not return a room.");
+
             closePrivateModal();
             await loadUserRooms();
-            switchRoom(privateRoomId);
+            await switchRoom(privateRoomId);
         }
 
         async function loadUserRooms() {
@@ -2124,7 +2136,7 @@ async function openInfoModal() {
         const online = xchatOnlineUsers.has(member);
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between text-black dark:text-white text-sm p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition';
-        row.innerHTML = `<div class="flex items-center space-x-2"><div class="relative"><div class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold">👤</div><div class="absolute bottom-0 right-0 w-2 h-2 ${online ? 'bg-[#30d158]' : 'bg-gray-400'} rounded-full ring-1 ring-white dark:ring-[#2c2c2e]"></div></div><span>${escapeHTML(member)} ${isSelf ? '(You)' : ''}</span></div>${!isSelf && currentRoomId.startsWith('chat_') ? `<button class="bg-[#007aff] hover:bg-[#0062cc] text-white text-xs px-3.5 py-1.5 rounded-xl transition font-medium shadow-sm">FaceTime</button>` : ''}`;
+        row.innerHTML = `<div class="flex items-center space-x-2"><div class="relative"><div class="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold">👤</div><div class="absolute bottom-0 right-0 w-2 h-2 ${online ? 'bg-[#30d158]' : 'bg-gray-400'} rounded-full ring-1 ring-white dark:ring-[#2c2c2e]"></div></div><span>${escapeHTML(member)} ${isSelf ? '(You)' : ''}</span></div>${!isSelf ? `<button class="bg-[#007aff] hover:bg-[#0062cc] text-white text-xs px-3.5 py-1.5 rounded-xl transition font-medium shadow-sm">Call</button>` : ''}`;
         const btn = row.querySelector('button');
         if (btn) btn.onclick = () => ringUser(member);
         membersList.appendChild(row);
@@ -2177,54 +2189,84 @@ async function switchRoom(roomId) {
 }
 
 async function loadUserRooms() {
-    roomsList.innerHTML = '';
-    if (!currentUser) return;
-    const uid = (await xchatSupabase.auth.getUser()).data.user?.id;
-    const { data: prefs } = await xchatSupabase.from('room_preferences').select('room_id,display_name').eq('user_id', uid);
-    const displayNames = Object.fromEntries((prefs || []).map(r => [r.room_id, r.display_name]));
-    const { data: memberships } = await xchatSupabase.from('room_members').select('room_id').eq('username', currentUser);
-    const rooms = [...new Set((memberships || []).map(r => r.room_id))];
-    // Keep the canonical Main Chat as the only lobby entry. Older versions could
-    // leave a second room with the same display name in room_members.
-    const canonicalLobby = 'general-lobby';
-    const duplicateMainNames = new Set([
-        'general-lobby', 'general lobby', 'main chat', 'mainchat', 'main-chat',
-        'general', 'lobby'
-    ]);
-    const filteredRooms = rooms.filter(room => {
-        if (room === canonicalLobby) return false;
-        const label = String(displayNames[room] || room).trim().toLowerCase()
-            .replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
-        if (duplicateMainNames.has(label)) return false;
-        if (label.includes('general lobby') || label.includes('main chat')) return false;
-        return true;
-    });
-    const addRoom = async (room, label) => {
-        const div = document.createElement('div');
-        div.className = `p-2.5 px-3 ${currentRoomId === room ? 'bg-[#007aff] text-white shadow-sm' : 'text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5'} text-xs cursor-pointer rounded-lg transition flex items-center justify-between font-medium truncate`;
-        const dot = document.createElement('span');
-        dot.className = 'w-2 h-2 rounded-full flex-shrink-0 ' + (room === 'general-lobby' ? 'bg-[#30d158]' : 'bg-gray-400');
-        div.innerHTML = `<span class="truncate">${escapeHTML(label)}</span>`;
-        div.appendChild(dot);
-        div.onclick = () => switchRoom(room);
-        div.oncontextmenu = e => handleRoomContextMenu(e, room);
-        roomsList.appendChild(div);
-    };
-    await addRoom('general-lobby', displayNames['general-lobby'] || 'general-lobby');
-    for (const room of filteredRooms) await addRoom(room, displayNames[room] || room);
+    if (!roomsList) return;
+    if (!currentUser) { roomsList.innerHTML = ''; return; }
 
-    // Final safety net: exactly one visible Main Chat/lobby entry.
-    const visibleRooms = Array.from(roomsList.children);
-    let lobbySeen = false;
-    visibleRooms.forEach(el => {
-        const label = (el.querySelector('span')?.textContent || '').trim().toLowerCase()
-            .replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
-        const isLobbyLabel = label === 'general lobby' || label === 'main chat' || label === 'mainchat';
-        if (isLobbyLabel) {
-            if (lobbySeen) el.remove();
-            else lobbySeen = true;
-        }
-    });
+    // Realtime can fire several room events at once. Older versions allowed
+    // overlapping async renders to finish together, so every request appended
+    // another copy of the same rooms. Only the newest request may render.
+    window.__xchatRoomListRequest = (window.__xchatRoomListRequest || 0) + 1;
+    const requestId = window.__xchatRoomListRequest;
+
+    const uid = (await xchatSupabase.auth.getUser()).data?.user?.id;
+    if (!uid || requestId !== window.__xchatRoomListRequest) return;
+
+    const [{ data: prefs, error: prefsError }, { data: memberships, error: membersError }] = await Promise.all([
+        xchatSupabase.from('room_preferences').select('room_id,display_name').eq('user_id', uid),
+        xchatSupabase.from('room_members').select('room_id').eq('username', currentUser)
+    ]);
+
+    if (requestId !== window.__xchatRoomListRequest) return;
+    if (prefsError) console.warn('XChat room preferences:', prefsError.message);
+    if (membersError) console.warn('XChat room memberships:', membersError.message);
+
+    const displayNames = Object.fromEntries((prefs || []).map(r => [String(r.room_id), r.display_name]));
+    const rooms = [...new Set((memberships || [])
+        .map(r => String(r.room_id || '').trim())
+        .filter(Boolean))];
+
+    const canonicalLobby = 'general-lobby';
+    const normalizeLabel = value => String(value || '')
+        .trim().toLowerCase()
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ');
+
+    const isLobbyAlias = room => {
+        if (room === canonicalLobby) return true;
+        const label = normalizeLabel(displayNames[room] || room);
+        return label === 'general lobby' || label === 'main chat' ||
+               label === 'mainchat' || label === 'general' || label === 'lobby' ||
+               label.includes('general lobby') || label.includes('main chat');
+    };
+
+    const visibleRooms = [{ room: canonicalLobby, label: 'Main Chat' }];
+    const seenRoomIds = new Set([canonicalLobby]);
+    const seenLabels = new Set(['main chat']);
+
+    for (const room of rooms) {
+        if (seenRoomIds.has(room) || isLobbyAlias(room)) continue;
+        const label = String(displayNames[room] || room).trim() || room;
+        const labelKey = normalizeLabel(label);
+        if (seenLabels.has(labelKey)) continue;
+        seenRoomIds.add(room);
+        seenLabels.add(labelKey);
+        visibleRooms.push({ room, label });
+    }
+
+    if (requestId !== window.__xchatRoomListRequest) return;
+
+    const fragment = document.createDocumentFragment();
+    for (const item of visibleRooms) {
+        const div = document.createElement('div');
+        div.className = `p-2.5 px-3 ${currentRoomId === item.room ? 'bg-[#007aff] text-white shadow-sm' : 'text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5'} text-xs cursor-pointer rounded-lg transition flex items-center justify-between font-medium truncate`;
+
+        const name = document.createElement('span');
+        name.className = 'truncate';
+        name.textContent = item.label;
+
+        const dot = document.createElement('span');
+        dot.className = `w-2 h-2 rounded-full flex-shrink-0 ${item.room === canonicalLobby ? 'bg-[#30d158]' : 'bg-gray-400'}`;
+
+        div.appendChild(name);
+        div.appendChild(dot);
+        div.onclick = () => switchRoom(item.room);
+        div.oncontextmenu = e => handleRoomContextMenu(e, item.room);
+        fragment.appendChild(div);
+    }
+
+    if (requestId === window.__xchatRoomListRequest) {
+        roomsList.replaceChildren(fragment);
+    }
 }
 
 async function addReaction(emoji) {
@@ -2292,8 +2334,14 @@ async function startPolling() {
     xchatRealtimeCalls = xchatSupabase.channel('xchat-calls-' + currentUser)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'call_signals' }, payload => xchatHandleCallSignal(payload.new)).subscribe();
     xchatRealtimeRooms = xchatSupabase.channel('xchat-rooms-' + currentUser)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'room_members' }, () => loadUserRooms())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'room_preferences' }, () => loadUserRooms())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'room_members' }, () => {
+            clearTimeout(window.__xchatRoomListDebounce);
+            window.__xchatRoomListDebounce = setTimeout(() => loadUserRooms(), 180);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'room_preferences' }, () => {
+            clearTimeout(window.__xchatRoomListDebounce);
+            window.__xchatRoomListDebounce = setTimeout(() => loadUserRooms(), 180);
+        })
         .subscribe();
     await xchatStartPresence();
     xchatPollingInterval = setInterval(() => { if (currentUser) checkRoomUpdates(); }, 2500);
