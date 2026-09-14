@@ -76,6 +76,7 @@
             <span>🖼️ Change Profile Picture</span>
             <input type="file" id="profile-pic-input" class="hidden" accept="image/*" onchange="handleProfilePicUpload(event)">
         </label>
+        <button onclick="openXChatSettings()" class="text-left px-4 py-2 text-xs text-black dark:text-white hover:bg-[#007aff] hover:text-white transition flex items-center space-x-2"><span>⚙️ Settings</span></button>
         <button onclick="handleSignOut()" class="text-left px-4 py-2 text-xs text-[#ff453a] hover:bg-[#ff453a] hover:text-white transition flex items-center space-x-2"><span>🚪 Sign Out</span></button>
     </div>
 
@@ -417,14 +418,38 @@
             authPassword.value = "";
         }
 
+        function xchatKeepPopupInside(el, preferredLeft, preferredTop) {
+            if (!el) return;
+            const margin = 10;
+            const rect = el.getBoundingClientRect();
+            const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+            const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+            const left = Math.min(Math.max(margin, preferredLeft), maxLeft);
+            const top = Math.min(Math.max(margin, preferredTop), maxTop);
+            el.style.left = `${left}px`;
+            el.style.top = `${top}px`;
+            el.style.right = 'auto';
+            el.style.bottom = 'auto';
+        }
+
+        function xchatPositionPopup(el, preferredLeft, preferredTop) {
+            if (!el) return;
+            el.classList.remove("hidden");
+            el.style.display = el.id === 'emoji-picker-popup' ? 'grid' : 'flex';
+            el.style.visibility = 'hidden';
+            el.style.left = '0px';
+            el.style.top = '0px';
+            requestAnimationFrame(() => {
+                xchatKeepPopupInside(el, preferredLeft, preferredTop);
+                el.style.visibility = 'visible';
+            });
+        }
+
         function toggleProfileDropdown(e) {
             e.stopPropagation();
             if (profileDropdown.classList.contains("hidden")) {
                 const rect = e.currentTarget.getBoundingClientRect();
-                profileDropdown.style.top = `${rect.bottom + 6}px`;
-                profileDropdown.style.left = `${rect.left}px`;
-                profileDropdown.classList.remove("hidden");
-                profileDropdown.style.display = "flex";
+                xchatPositionPopup(profileDropdown, rect.left, rect.bottom + 6);
             } else {
                 profileDropdown.classList.add("hidden");
                 profileDropdown.style.display = "none";
@@ -435,10 +460,7 @@
             e.stopPropagation();
             if (emojiPickerPopup.classList.contains("hidden")) {
                 const rect = e.currentTarget.getBoundingClientRect();
-                emojiPickerPopup.style.bottom = `${window.innerHeight - rect.top + 8}px`;
-                emojiPickerPopup.style.left = `${rect.left}px`;
-                emojiPickerPopup.classList.remove("hidden");
-                emojiPickerPopup.style.display = "grid";
+                xchatPositionPopup(emojiPickerPopup, rect.left, rect.top - 258);
             } else {
                 emojiPickerPopup.classList.add("hidden");
                 emojiPickerPopup.style.display = "none";
@@ -1107,7 +1129,8 @@
                 ? "bg-[#007aff] text-white rounded-2xl rounded-tr-sm shadow-sm" 
                 : "bg-gray-200 dark:bg-[#262628] text-black dark:text-white rounded-2xl rounded-tl-sm border border-black/5 dark:border-white/5 shadow-sm";
 
-            let statusText = isMe ? `<div class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 px-1 font-medium msg-status">${escapeHTML(msg.status || 'Delivered')}</div>` : '';
+            let messageTime = msg.timestamp ? new Date(Number(msg.timestamp)).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+            let statusText = `<div class="xchat-message-meta flex items-center gap-1 text-[10px] mt-0.5 px-1 font-medium"><span class="xchat-message-time text-gray-400 dark:text-gray-500">${escapeHTML(messageTime)}</span>${isMe ? `<span class="msg-status text-gray-400 dark:text-gray-500">${escapeHTML(msg.status || 'Delivered')}</span>` : ''}</div>`;
             
             let reactionsHTML = "";
             if (msg.reactions && Object.keys(msg.reactions).length > 0) {
@@ -2273,9 +2296,73 @@ async function addReaction(emoji) {
     msgContextMenu.classList.add('hidden');
     msgContextMenu.style.display = 'none';
     if (!selectedMessageId || !currentUser) return;
-    const { error } = await xchatSupabase.rpc('xchat_toggle_reaction', { p_message_id: selectedMessageId, p_emoji: emoji });
-    if (error) return alert('Reaction could not be changed. Run the XChat fixes SQL once, then try again.');
+
+    const messageId = String(selectedMessageId);
+    const msg = (xchatCloudMessages || []).find(m => String(m.id) === messageId);
+    if (!msg) return;
+
+    // Update the reaction on screen immediately.
+    if (!msg.reactions || typeof msg.reactions !== 'object') msg.reactions = {};
+    if (!Array.isArray(msg.reactions[emoji])) msg.reactions[emoji] = [];
+    if (msg.reactions[emoji].includes(currentUser)) {
+        msg.reactions[emoji] = msg.reactions[emoji].filter(u => u !== currentUser);
+        if (!msg.reactions[emoji].length) delete msg.reactions[emoji];
+    } else {
+        msg.reactions[emoji].push(currentUser);
+    }
+    xchatRenderReactionBadges(messageId, msg.reactions);
+
+    const { error } = await xchatSupabase.rpc('xchat_toggle_reaction', {
+        p_message_id: selectedMessageId,
+        p_emoji: emoji
+    });
+
+    if (error) {
+        console.error('XChat reaction error:', error);
+        // Fallback for configurations where the RPC is unavailable but direct
+        // updates to the sender's own messages are allowed by RLS.
+        const userResult = await xchatSupabase.auth.getUser();
+        const uid = userResult.data?.user?.id;
+        if (uid) {
+            const { error: directError } = await xchatSupabase
+                .from('messages')
+                .update({ reactions: msg.reactions })
+                .eq('id', selectedMessageId)
+                .eq('sender_id', uid);
+            if (directError) console.warn('Direct reaction fallback failed:', directError);
+        }
+        // Do not clear/rebuild the chat just because a reaction request failed.
+        return;
+    }
+
     await loadMessages();
+}
+
+function xchatRenderReactionBadges(messageId, reactions) {
+    const host = [...document.querySelectorAll('[data-message-id]')]
+        .find(el => String(el.dataset.messageId) === String(messageId));
+    if (!host) return;
+
+    let badgeRow = host.querySelector('.xchat-reaction-row');
+    const entries = Object.entries(reactions || {}).filter(([, users]) => Array.isArray(users) && users.length);
+
+    if (!entries.length) {
+        if (badgeRow) badgeRow.remove();
+        return;
+    }
+
+    if (!badgeRow) {
+        badgeRow = document.createElement('div');
+        badgeRow.className = 'xchat-reaction-row flex space-x-1 mt-1 z-10';
+        const bubble = host.querySelector('[oncontextmenu]');
+        if (bubble) bubble.insertAdjacentElement('afterend', badgeRow);
+        else host.appendChild(badgeRow);
+    }
+
+    badgeRow.innerHTML = entries.map(([reactionEmoji, users]) => {
+        const count = users.length;
+        return `<span title="${count} reaction${count === 1 ? '' : 's'}" class="bg-white dark:bg-[#3a3a3c] border border-black/10 dark:border-white/10 px-1.5 py-0.5 rounded-full text-xs shadow-sm">${reactionEmoji}${count > 1 ? ` ${count}` : ''}</span>`;
+    }).join('');
 }
 
 let xchatLastTypingSent = 0;
@@ -2826,7 +2913,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
         messageInput.addEventListener('keydown', e => {
             if (e.key === 'Enter') {
                 e.stopImmediatePropagation();
-                if (!e.shiftKey) {
+                if (!e.shiftKey && (!window.xchatSettings || window.xchatSettings.enter !== false)) {
                     e.preventDefault();
                     handleSend();
                 }
@@ -2973,5 +3060,370 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 })();
 </script>
 
+
+<script>
+/* ================================================================
+   XCHAT DESKTOP NOTIFICATIONS
+   Browser notifications for new incoming messages.
+   Requires HTTPS (GitHub Pages works) and browser permission.
+================================================================ */
+(function () {
+    const NOTIF_SEEN_KEY = 'xchat_notification_seen_ids';
+    const NOTIF_ENABLED_KEY = 'xchat_desktop_notifications_enabled';
+    let notificationChannel = null;
+    let notificationChannelStartedFor = null;
+    let notificationStarted = false;
+    let notificationSeen = new Set();
+
+    function notifSeenLoad() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(NOTIF_SEEN_KEY) || '[]');
+            notificationSeen = new Set(Array.isArray(raw) ? raw.slice(-150) : []);
+        } catch (_) {
+            notificationSeen = new Set();
+        }
+    }
+
+    function notifSeenSave() {
+        try {
+            localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify(Array.from(notificationSeen).slice(-150)));
+        } catch (_) {}
+    }
+
+    function notifRemember(id) {
+        if (!id) return;
+        notificationSeen.add(String(id));
+        if (notificationSeen.size > 150) {
+            notificationSeen = new Set(Array.from(notificationSeen).slice(-150));
+        }
+        notifSeenSave();
+    }
+
+    function notifIsSupported() {
+        return 'Notification' in window && typeof Notification.requestPermission === 'function';
+    }
+
+    function notifEnabled() {
+        return notifIsSupported() && Notification.permission === 'granted' && localStorage.getItem(NOTIF_ENABLED_KEY) !== 'false';
+    }
+
+    function notifButtonUpdate() {
+        const btn = document.getElementById('xchat-notification-btn');
+        if (!btn) return;
+        if (!notifIsSupported()) {
+            btn.textContent = '🔕 Notifications unavailable';
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+            return;
+        }
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
+        if (Notification.permission === 'granted' && localStorage.getItem(NOTIF_ENABLED_KEY) !== 'false') {
+            btn.textContent = '🔔 Desktop notifications: On';
+        } else if (Notification.permission === 'denied') {
+            btn.textContent = '🔕 Notifications blocked';
+        } else {
+            btn.textContent = '🔔 Enable desktop notifications';
+        }
+    }
+
+    async function enableDesktopNotifications() {
+        if (!notifIsSupported()) {
+            if (typeof xchatToast === 'function') xchatToast('This browser does not support desktop notifications.', 'error');
+            return;
+        }
+        if (Notification.permission === 'denied') {
+            if (typeof xchatToast === 'function') xchatToast('Notifications are blocked. Allow notifications for XChat in your browser settings.', 'error');
+            notifButtonUpdate();
+            return;
+        }
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                localStorage.setItem(NOTIF_ENABLED_KEY, 'true');
+                notifButtonUpdate();
+                if (typeof xchatToast === 'function') xchatToast('Desktop notifications are now on.');
+                try {
+                    const test = new Notification('XChat notifications enabled', {
+                        body: 'You’ll get a notification when someone messages you.',
+                        tag: 'xchat-notification-enabled'
+                    });
+                    setTimeout(() => test.close(), 3500);
+                } catch (_) {}
+            } else {
+                localStorage.setItem(NOTIF_ENABLED_KEY, 'false');
+                notifButtonUpdate();
+            }
+        } catch (e) {
+            console.error('XChat notification permission error:', e);
+        }
+    }
+
+    window.xchatEnableDesktopNotifications = enableDesktopNotifications;
+
+    function addNotificationButton() {
+        if (document.getElementById('xchat-notification-btn')) {
+            notifButtonUpdate();
+            return;
+        }
+        const dropdown = document.getElementById('profile-dropdown');
+        if (!dropdown) return;
+        const btn = document.createElement('button');
+        btn.id = 'xchat-notification-btn';
+        btn.type = 'button';
+        btn.onclick = enableDesktopNotifications;
+        btn.className = 'text-left px-4 py-2 text-xs text-black dark:text-white hover:bg-[#007aff] hover:text-white transition flex items-center space-x-2';
+        dropdown.insertBefore(btn, dropdown.firstChild);
+        notifButtonUpdate();
+    }
+
+    function notificationRoomName(roomId) {
+        if (roomId === 'general-lobby') return 'Main Chat';
+        const title = document.getElementById('room-title')?.textContent?.trim();
+        if (roomId === window.currentRoomId && title) return title;
+        return 'XChat';
+    }
+
+    async function notifyForMessage(row) {
+        if (!row || row.sender === window.currentUser || !notifEnabled()) return;
+        if (!row.id || notificationSeen.has(String(row.id))) return;
+        notifRemember(row.id);
+
+        const roomId = row.room_id;
+        const isCurrentRoom = roomId === window.currentRoomId;
+        // Don't interrupt someone who is actively looking at the message.
+        if (isCurrentRoom && !document.hidden) return;
+
+        let body = String(row.text || '').trim();
+        if (row.type === 'image') body = '📷 Sent an image';
+        else if (row.type === 'audio') body = '🎤 Sent a voice message';
+        else if (row.type === 'file') body = '📎 Sent a file' + (row.file_name ? ': ' + row.file_name : '');
+        if (!body) body = 'Sent you a message';
+        if (body.length > 180) body = body.slice(0, 177) + '…';
+
+        try {
+            const n = new Notification(`${row.sender || 'Someone'} • ${notificationRoomName(roomId)}`, {
+                body,
+                icon: 'https://cdn-icons-png.flaticon.com/512/2462/2462719.png',
+                tag: 'xchat-message-' + String(roomId),
+                renotify: true,
+                silent: false
+            });
+            n.onclick = async function () {
+                try { window.focus(); } catch (_) {}
+                try {
+                    if (typeof window.switchRoom === 'function' && roomId) await window.switchRoom(roomId);
+                } catch (_) {}
+                try { n.close(); } catch (_) {}
+            };
+        } catch (e) {
+            console.warn('XChat could not show desktop notification:', e);
+        }
+    }
+
+    async function startNotificationRealtime() {
+        if (!window.currentUser || !window.xchatSupabase) return;
+        if (notificationStarted && notificationChannelStartedFor === window.currentUser) return;
+        notificationStarted = true;
+        notificationChannelStartedFor = window.currentUser;
+        notifSeenLoad();
+
+        try {
+            if (notificationChannel) await window.xchatSupabase.removeChannel(notificationChannel);
+        } catch (_) {}
+
+        const channelName = 'xchat-desktop-notifications-' + String(window.currentUser).replace(/[^a-zA-Z0-9_-]/g, '_');
+        notificationChannel = window.xchatSupabase.channel(channelName);
+        notificationChannel
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                const row = payload?.new;
+                if (row) notifyForMessage(row);
+            })
+            .subscribe();
+    }
+
+    function stopNotificationRealtime() {
+        if (notificationChannel && window.xchatSupabase) {
+            try { window.xchatSupabase.removeChannel(notificationChannel); } catch (_) {}
+        }
+        notificationChannel = null;
+        notificationStarted = false;
+        notificationChannelStartedFor = null;
+    }
+
+    // Patch sign-in/sign-out so notifications follow the logged-in XChat account.
+    function hookAuth() {
+        const originalSetSignedIn = window.xchatSetSignedIn;
+        if (typeof originalSetSignedIn === 'function' && !originalSetSignedIn.__xchatNotifWrapped) {
+            const wrapped = async function (...args) {
+                const result = await originalSetSignedIn.apply(this, args);
+                setTimeout(startNotificationRealtime, 500);
+                notifButtonUpdate();
+                return result;
+            };
+            wrapped.__xchatNotifWrapped = true;
+            window.xchatSetSignedIn = wrapped;
+        }
+        const originalSignOut = window.handleSignOut;
+        if (typeof originalSignOut === 'function' && !originalSignOut.__xchatNotifWrapped) {
+            const wrapped = async function (...args) {
+                stopNotificationRealtime();
+                return await originalSignOut.apply(this, args);
+            };
+            wrapped.__xchatNotifWrapped = true;
+            window.handleSignOut = wrapped;
+        }
+    }
+
+    function initNotifications() {
+        addNotificationButton();
+        hookAuth();
+        notifSeenLoad();
+        if (window.currentUser) startNotificationRealtime();
+        notifButtonUpdate();
+    }
+
+    // The existing XChat code has multiple initialization layers, so initialize
+    // more than once safely until the signed-in state is available.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            initNotifications();
+            setTimeout(initNotifications, 800);
+            setTimeout(initNotifications, 2200);
+        }, { once: true });
+    } else {
+        initNotifications();
+        setTimeout(initNotifications, 800);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && window.currentUser) {
+            addNotificationButton();
+            notifButtonUpdate();
+        }
+    });
+
+    window.addEventListener('beforeunload', stopNotificationRealtime);
+})();
+</script>
+
+
+<script id="xchat-popup-viewport-fix">
+(() => {
+    function keepOpenPopupsInside() {
+        const ids = ['profile-dropdown','context-menu','msg-context-menu','emoji-picker-popup'];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el || el.classList.contains('hidden') || getComputedStyle(el).display === 'none') return;
+            const rect = el.getBoundingClientRect();
+            xchatKeepPopupInside(el, rect.left, rect.top);
+        });
+    }
+    window.addEventListener('resize', keepOpenPopupsInside);
+    window.addEventListener('scroll', keepOpenPopupsInside, true);
+})();
+</script>
+
+<!-- XChat Settings Panel -->
+<div id="xchat-settings-overlay" class="hidden fixed inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-md z-[70] flex items-center justify-center p-3" onclick="if(event.target===this) closeXChatSettings()">
+ <div id="xchat-settings-panel" class="w-full max-w-4xl max-h-[calc(100vh-24px)] overflow-hidden rounded-[28px] bg-white/95 dark:bg-[#202124]/95 border border-black/10 dark:border-white/10 shadow-2xl backdrop-blur-2xl flex flex-col">
+  <div class="flex items-center justify-between px-6 py-5 border-b border-black/10 dark:border-white/10 shrink-0">
+   <div><div class="text-xl font-semibold text-black dark:text-white">⚙️ XChat Settings</div><div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Make XChat look and behave exactly how you want.</div></div>
+   <button onclick="closeXChatSettings()" class="w-9 h-9 rounded-full bg-gray-100 dark:bg-[#3a3a3c] hover:bg-gray-200 dark:hover:bg-[#48484a] text-gray-600 dark:text-gray-200 transition">✕</button>
+  </div>
+  <div class="overflow-y-auto p-5 space-y-4">
+   <div class="xchat-settings-card">
+    <div class="xchat-settings-title">🎨 XChat Themes</div>
+    <div class="xchat-theme-grid">
+     <button class="xchat-theme-card" data-theme="classic" onclick="xchatChooseTheme('classic')"><span class="theme-preview classic"></span><b>Classic</b><small>Original XChat</small></button>
+     <button class="xchat-theme-card" data-theme="ocean" onclick="xchatChooseTheme('ocean')"><span class="theme-preview ocean"></span><b>Ocean</b><small>Blue + cyan</small></button>
+     <button class="xchat-theme-card" data-theme="galaxy" onclick="xchatChooseTheme('galaxy')"><span class="theme-preview galaxy"></span><b>Galaxy</b><small>Purple space</small></button>
+     <button class="xchat-theme-card" data-theme="sunset" onclick="xchatChooseTheme('sunset')"><span class="theme-preview sunset"></span><b>Sunset</b><small>Orange + pink</small></button>
+     <button class="xchat-theme-card" data-theme="forest" onclick="xchatChooseTheme('forest')"><span class="theme-preview forest"></span><b>Forest</b><small>Fresh green</small></button>
+     <button class="xchat-theme-card" data-theme="rose" onclick="xchatChooseTheme('rose')"><span class="theme-preview rose"></span><b>Rose</b><small>Pink glow</small></button>
+     <button class="xchat-theme-card" data-theme="neon" onclick="xchatChooseTheme('neon')"><span class="theme-preview neon"></span><b>Neon</b><small>Cyber style</small></button>
+     <button class="xchat-theme-card" data-theme="midnight" onclick="xchatChooseTheme('midnight')"><span class="theme-preview midnight"></span><b>Midnight</b><small>Deep blue</small></button>
+     <button class="xchat-theme-card" data-theme="lava" onclick="xchatChooseTheme('lava')"><span class="theme-preview lava"></span><b>Lava</b><small>Red heat</small></button>
+     <button class="xchat-theme-card" data-theme="mint" onclick="xchatChooseTheme('mint')"><span class="theme-preview mint"></span><b>Mint</b><small>Clean green</small></button>
+     <button class="xchat-theme-card" data-theme="sky" onclick="xchatChooseTheme('sky')"><span class="theme-preview sky"></span><b>Sky</b><small>Bright blue</small></button>
+     <button class="xchat-theme-card" data-theme="mono" onclick="xchatChooseTheme('mono')"><span class="theme-preview mono"></span><b>Mono</b><small>Minimal</small></button>
+    </div>
+   </div>
+   <div class="xchat-settings-card">
+    <div class="xchat-settings-title">🌓 Appearance</div>
+    <div class="xchat-setting-row"><div><b>Dark mode</b><small>Use a dark interface</small></div><label class="xchat-switch"><input id="xset-dark" type="checkbox" onchange="xchatSettingChanged('dark',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Compact messages</b><small>Fit more messages on screen</small></div><label class="xchat-switch"><input id="xset-compact" type="checkbox" onchange="xchatSettingChanged('compact',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Message animations</b><small>Animate messages and interface changes</small></div><label class="xchat-switch"><input id="xset-animations" type="checkbox" onchange="xchatSettingChanged('animations',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Reduce motion</b><small>Disable most animations for a calmer interface</small></div><label class="xchat-switch"><input id="xset-reduced" type="checkbox" onchange="xchatSettingChanged('reducedMotion',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>High contrast</b><small>Increase interface contrast</small></div><label class="xchat-switch"><input id="xset-contrast" type="checkbox" onchange="xchatSettingChanged('contrast',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Glass / blur effects</b><small>Use frosted-glass menus and panels</small></div><label class="xchat-switch"><input id="xset-blur" type="checkbox" onchange="xchatSettingChanged('blur',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Rounded interface</b><small>Use softer rounded corners</small></div><label class="xchat-switch"><input id="xset-rounded" type="checkbox" onchange="xchatSettingChanged('rounded',this.checked)"><span></span></label></div>
+   </div>
+   <div class="xchat-settings-card">
+    <div class="xchat-settings-title">💬 Messaging</div>
+    <div class="xchat-setting-row"><div><b>Press Enter to send</b><small>Turn off to make Enter create a new line</small></div><label class="xchat-switch"><input id="xset-enter" type="checkbox" onchange="xchatSettingChanged('enter',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Show timestamps</b><small>Show the time underneath messages</small></div><label class="xchat-switch"><input id="xset-timestamps" type="checkbox" onchange="xchatSettingChanged('timestamps',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Show delivery status</b><small>Show Delivered under your messages</small></div><label class="xchat-switch"><input id="xset-status" type="checkbox" onchange="xchatSettingChanged('status',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Auto-scroll</b><small>Scroll to the newest message after updates</small></div><label class="xchat-switch"><input id="xset-autoscroll" type="checkbox" onchange="xchatSettingChanged('autoscroll',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Message sounds</b><small>Play a subtle sound for incoming messages</small></div><label class="xchat-switch"><input id="xset-sounds" type="checkbox" onchange="xchatSettingChanged('sounds',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Bubble style</b><small>Change message bubble shape</small></div><select id="xset-bubbles" onchange="xchatSettingChanged('bubbles',this.value)" class="xchat-select"><option value="classic">Classic</option><option value="round">Extra round</option><option value="square">Soft square</option></select></div>
+   </div>
+   <div class="xchat-settings-card">
+    <div class="xchat-settings-title">🔤 Text</div>
+    <div class="xchat-setting-row"><div><b>Text size</b><small>Change overall XChat text size</small></div><select id="xset-fontsize" onchange="xchatSettingChanged('fontSize',this.value)" class="xchat-select"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option><option value="xlarge">Extra large</option></select></div>
+    <div class="xchat-setting-row"><div><b>Message spacing</b><small>Control the gap between messages</small></div><select id="xset-spacing" onchange="xchatSettingChanged('spacing',this.value)" class="xchat-select"><option value="tight">Tight</option><option value="normal">Normal</option><option value="relaxed">Relaxed</option></select></div>
+   </div>
+   <div class="xchat-settings-card">
+    <div class="xchat-settings-title">🖥️ Interface</div>
+    <div class="xchat-setting-row"><div><b>Sidebar width</b><small>Change the width of your chat list</small></div><select id="xset-sidebar" onchange="xchatSettingChanged('sidebar',this.value)" class="xchat-select"><option value="narrow">Narrow</option><option value="normal">Normal</option><option value="wide">Wide</option></select></div>
+    <div class="xchat-setting-row"><div><b>Keep popups on-screen</b><small>Keep profile menus, emoji menus and context menus inside the viewport</small></div><label class="xchat-switch"><input id="xset-popups" type="checkbox" onchange="xchatSettingChanged('popups',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Confirm before deleting</b><small>Ask before deleting messages or chats</small></div><label class="xchat-switch"><input id="xset-confirm" type="checkbox" onchange="xchatSettingChanged('confirm',this.checked)"><span></span></label></div>
+   </div>
+   <div class="xchat-settings-card">
+    <div class="xchat-settings-title">🔔 Notifications</div>
+    <div class="xchat-setting-row"><div><b>Desktop notifications</b><small>Notify you when XChat is in the background</small></div><label class="xchat-switch"><input id="xset-notifications" type="checkbox" onchange="xchatSettingChanged('notifications',this.checked)"><span></span></label></div>
+    <div class="xchat-setting-row"><div><b>Notification message preview</b><small>Include a short message preview in desktop notifications</small></div><label class="xchat-switch"><input id="xset-preview" type="checkbox" onchange="xchatSettingChanged('preview',this.checked)"><span></span></label></div>
+    <button onclick="xchatRequestNotifications()" class="w-full mt-2 px-4 py-2.5 rounded-xl bg-[var(--xchat-accent)] text-white text-sm font-medium transition">🔔 Enable / update notification permission</button>
+   </div>
+   <div class="xchat-settings-card">
+    <div class="xchat-settings-title">👁️ Privacy</div>
+    <div class="xchat-setting-row"><div><b>Hide online indicators</b><small>Hide green online dots in Details</small></div><label class="xchat-switch"><input id="xset-hideonline" type="checkbox" onchange="xchatSettingChanged('hideOnline',this.checked)"><span></span></label></div>
+   </div>
+   <div class="xchat-settings-card">
+    <div class="xchat-settings-title">🧹 Reset</div>
+    <div class="grid grid-cols-2 gap-2"><button onclick="xchatResetSettings()" class="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-[#3a3a3c] text-black dark:text-white text-sm font-medium">Reset all settings</button><button onclick="xchatResetAppearance()" class="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-[#3a3a3c] text-black dark:text-white text-sm font-medium">Reset appearance</button></div>
+   </div>
+  </div>
+  <div class="px-5 py-4 border-t border-black/10 dark:border-white/10 text-[11px] text-gray-500 dark:text-gray-400 text-center shrink-0">Settings save automatically on this device.</div>
+ </div>
+</div>
+<style id="xchat-settings-styles-v2">
+:root{--xchat-accent:#007aff;--xchat-accent2:#5ac8fa}
+body.xchat-theme-ocean{--xchat-accent:#0a84ff;--xchat-accent2:#30d5c8}body.xchat-theme-galaxy{--xchat-accent:#8b5cf6;--xchat-accent2:#c084fc}body.xchat-theme-sunset{--xchat-accent:#ff7a18;--xchat-accent2:#ff375f}body.xchat-theme-forest{--xchat-accent:#34c759;--xchat-accent2:#30d158}body.xchat-theme-rose{--xchat-accent:#ff2d55;--xchat-accent2:#ff6482}body.xchat-theme-neon{--xchat-accent:#00e5ff;--xchat-accent2:#a855f7}body.xchat-theme-midnight{--xchat-accent:#6366f1;--xchat-accent2:#818cf8}body.xchat-theme-lava{--xchat-accent:#ff3b30;--xchat-accent2:#ff9500}body.xchat-theme-mint{--xchat-accent:#00a878;--xchat-accent2:#5eead4}body.xchat-theme-sky{--xchat-accent:#007aff;--xchat-accent2:#64d2ff}body.xchat-theme-mono{--xchat-accent:#555;--xchat-accent2:#999}
+body.xchat-theme-galaxy{background:radial-gradient(circle at 20% 20%,rgba(139,92,246,.16),transparent 35%),#f2efff}body.xchat-theme-neon{background:radial-gradient(circle at 20% 20%,rgba(0,229,255,.14),transparent 35%),radial-gradient(circle at 80% 80%,rgba(168,85,247,.14),transparent 35%),#071019}body.xchat-theme-sunset{background:radial-gradient(circle at 80% 20%,rgba(255,122,24,.12),transparent 35%),#fff5ef}body.xchat-theme-forest{background:radial-gradient(circle at 20% 80%,rgba(52,199,89,.10),transparent 35%),#f1fbf3}body.xchat-theme-rose{background:radial-gradient(circle at 80% 20%,rgba(255,45,85,.10),transparent 35%),#fff2f6}body.xchat-theme-lava{background:radial-gradient(circle at 70% 20%,rgba(255,59,48,.13),transparent 35%),#fff1ef}body.xchat-theme-mint{background:radial-gradient(circle at 20% 20%,rgba(0,168,120,.12),transparent 35%),#effbf7}body.xchat-theme-sky{background:radial-gradient(circle at 80% 20%,rgba(100,210,255,.14),transparent 35%),#eff9ff}body.xchat-theme-mono{background:#f4f4f4}
+html.dark body.xchat-theme-galaxy,html.dark body.xchat-theme-ocean,html.dark body.xchat-theme-sunset,html.dark body.xchat-theme-forest,html.dark body.xchat-theme-rose,html.dark body.xchat-theme-lava,html.dark body.xchat-theme-mint,html.dark body.xchat-theme-sky,html.dark body.xchat-theme-mono{background:#111318}
+body.xchat-font-small{font-size:14px}body.xchat-font-large{font-size:18px}body.xchat-font-xlarge{font-size:20px}body.xchat-spacing-tight .xchat-message-enter{margin-top:2px!important;margin-bottom:2px!important}body.xchat-spacing-relaxed .xchat-message-enter{margin-top:9px!important;margin-bottom:9px!important}body.xchat-bubbles-round .message-bubble{border-radius:28px!important}body.xchat-bubbles-square .message-bubble{border-radius:10px!important}body.xchat-sidebar-narrow #rooms-list{width:230px!important}body.xchat-sidebar-wide #rooms-list{width:330px!important}body.xchat-no-blur #profile-dropdown,body.xchat-no-blur #context-menu,body.xchat-no-blur #msg-context-menu,body.xchat-no-blur #emoji-picker-popup,body.xchat-no-blur #xchat-settings-panel{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}body.xchat-no-rounded #profile-dropdown,body.xchat-no-rounded #context-menu,body.xchat-no-rounded #msg-context-menu,body.xchat-no-rounded #emoji-picker-popup{border-radius:8px!important}body.xchat-no-timestamps .xchat-message-time{display:none!important}body.xchat-no-status .msg-status{display:none!important}body.xchat-reduced-motion *,body.xchat-reduced-motion *::before,body.xchat-reduced-motion *::after,body.xchat-no-animations *,body.xchat-no-animations *::before,body.xchat-no-animations *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}body.xchat-high-contrast{filter:contrast(1.08)}body.xchat-theme-neon .message-bubble{box-shadow:0 0 14px color-mix(in srgb,var(--xchat-accent) 22%,transparent)}
+.xchat-settings-card{background:rgba(128,128,128,.08);border:1px solid rgba(128,128,128,.13);border-radius:20px;padding:15px}.xchat-settings-title{font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}.dark .xchat-settings-title{color:#a1a1aa}.xchat-setting-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 2px;border-top:1px solid rgba(128,128,128,.12)}.xchat-setting-row:first-of-type{border-top:0}.xchat-setting-row b{display:block;font-size:13px;color:#111827}.dark .xchat-setting-row b{color:#f5f5f7}.xchat-setting-row small{display:block;margin-top:3px;font-size:11px;color:#6b7280}.dark .xchat-setting-row small{color:#a1a1aa}.xchat-switch{position:relative;display:block;width:46px;height:27px;flex:0 0 46px}.xchat-switch input{opacity:0;width:0;height:0}.xchat-switch span{position:absolute;inset:0;border-radius:999px;background:#d1d5db;transition:.2s;cursor:pointer}.dark .xchat-switch span{background:#4b4b4f}.xchat-switch span:before{content:"";position:absolute;width:21px;height:21px;left:3px;top:3px;border-radius:50%;background:white;box-shadow:0 1px 4px #0003;transition:.2s}.xchat-switch input:checked+span{background:var(--xchat-accent)}.xchat-switch input:checked+span:before{transform:translateX(19px)}.xchat-select{min-width:125px;padding:8px 30px 8px 10px;border-radius:10px;background:rgba(128,128,128,.12);color:#111827;border:1px solid rgba(128,128,128,.18);outline:none}.dark .xchat-select{color:#fff;background:rgba(255,255,255,.08)}.xchat-theme-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.xchat-theme-card{padding:10px;border:1px solid rgba(128,128,128,.18);border-radius:16px;background:rgba(128,128,128,.07);text-align:left;cursor:pointer;transition:.18s}.xchat-theme-card:hover{transform:translateY(-2px);background:rgba(128,128,128,.13)}.xchat-theme-card.xchat-theme-active{outline:2px solid var(--xchat-accent);outline-offset:2px}.xchat-theme-card b{display:block;font-size:12px;color:#111827}.dark .xchat-theme-card b{color:#fff}.xchat-theme-card small{display:block;font-size:10px;color:#6b7280;margin-top:2px}.dark .xchat-theme-card small{color:#a1a1aa}.theme-preview{display:block;height:38px;border-radius:11px;margin-bottom:7px;background:linear-gradient(135deg,#007aff,#5ac8fa)}.theme-preview.ocean{background:linear-gradient(135deg,#0a84ff,#30d5c8)}.theme-preview.galaxy{background:linear-gradient(135deg,#8b5cf6,#c084fc)}.theme-preview.sunset{background:linear-gradient(135deg,#ff7a18,#ff375f)}.theme-preview.forest{background:linear-gradient(135deg,#34c759,#30d158)}.theme-preview.rose{background:linear-gradient(135deg,#ff2d55,#ff6482)}.theme-preview.neon{background:linear-gradient(135deg,#00e5ff,#a855f7)}.theme-preview.midnight{background:linear-gradient(135deg,#6366f1,#111827)}.theme-preview.lava{background:linear-gradient(135deg,#ff3b30,#ff9500)}.theme-preview.mint{background:linear-gradient(135deg,#00a878,#5eead4)}.theme-preview.sky{background:linear-gradient(135deg,#007aff,#64d2ff)}.theme-preview.mono{background:linear-gradient(135deg,#222,#aaa)}
+@media(max-width:700px){.xchat-theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.xchat-setting-row{gap:10px}}
+</style>
+<script id="xchat-settings-system-v2">
+(()=>{
+ const KEY='xchat_settings_v2';
+ const defaults={theme:'classic',dark:false,compact:false,animations:true,reducedMotion:false,contrast:false,blur:true,rounded:true,enter:true,timestamps:true,status:true,autoscroll:true,sounds:false,bubbles:'classic',fontSize:'medium',spacing:'normal',sidebar:'normal',popups:true,confirm:true,notifications:false,preview:true,hideOnline:false};
+ let settings={...defaults};try{settings={...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){}
+ window.xchatSettings=settings;
+ const save=()=>{window.xchatSettings=settings;localStorage.setItem(KEY,JSON.stringify(settings))};
+ function apply(){const b=document.body;if(!b)return;
+  ['ocean','galaxy','sunset','forest','rose','neon','midnight','lava','mint','sky','mono'].forEach(t=>b.classList.remove('xchat-theme-'+t));if(settings.theme!=='classic')b.classList.add('xchat-theme-'+settings.theme);
+  b.classList.toggle('xchat-compact',!!settings.compact);b.classList.toggle('xchat-no-animations',!settings.animations);b.classList.toggle('xchat-reduced-motion',!!settings.reducedMotion);b.classList.toggle('xchat-high-contrast',!!settings.contrast);b.classList.toggle('xchat-no-blur',!settings.blur);b.classList.toggle('xchat-no-rounded',!settings.rounded);b.classList.toggle('xchat-no-timestamps',!settings.timestamps);b.classList.toggle('xchat-no-status',!settings.status);b.classList.remove('xchat-font-small','xchat-font-large','xchat-font-xlarge');if(settings.fontSize==='small')b.classList.add('xchat-font-small');if(settings.fontSize==='large')b.classList.add('xchat-font-large');if(settings.fontSize==='xlarge')b.classList.add('xchat-font-xlarge');b.classList.remove('xchat-spacing-tight','xchat-spacing-relaxed');if(settings.spacing==='tight')b.classList.add('xchat-spacing-tight');if(settings.spacing==='relaxed')b.classList.add('xchat-spacing-relaxed');b.classList.remove('xchat-bubbles-round','xchat-bubbles-square');if(settings.bubbles==='round')b.classList.add('xchat-bubbles-round');if(settings.bubbles==='square')b.classList.add('xchat-bubbles-square');b.classList.remove('xchat-sidebar-narrow','xchat-sidebar-wide');if(settings.sidebar==='narrow')b.classList.add('xchat-sidebar-narrow');if(settings.sidebar==='wide')b.classList.add('xchat-sidebar-wide');document.documentElement.classList.toggle('dark',!!settings.dark);
+  const map={dark:'xset-dark',compact:'xset-compact',animations:'xset-animations',reducedMotion:'xset-reduced',contrast:'xset-contrast',blur:'xset-blur',rounded:'xset-rounded',enter:'xset-enter',timestamps:'xset-timestamps',status:'xset-status',autoscroll:'xset-autoscroll',sounds:'xset-sounds',popups:'xset-popups',confirm:'xset-confirm',notifications:'xset-notifications',preview:'xset-preview',hideOnline:'xset-hideonline'};Object.entries(map).forEach(([k,id])=>{const e=document.getElementById(id);if(e)e.checked=!!settings[k]});['fontSize','spacing','bubbles','sidebar'].forEach(k=>{const id={fontSize:'xset-fontsize',spacing:'xset-spacing',bubbles:'xset-bubbles',sidebar:'xset-sidebar'}[k],e=document.getElementById(id);if(e)e.value=settings[k]});document.querySelectorAll('.xchat-theme-card').forEach(e=>e.classList.toggle('xchat-theme-active',e.dataset.theme===settings.theme));
+ }
+ window.xchatChooseTheme=t=>{settings.theme=t;save();apply()};window.xchatSettingChanged=(k,v)=>{settings[k]=['fontSize','spacing','bubbles','sidebar'].includes(k)?v:!!v;save();apply();if(k==='notifications'&&settings.notifications&&typeof window.xchatEnableDesktopNotifications==='function')window.xchatEnableDesktopNotifications().catch(()=>{});if(k==='notifications'&&!settings.notifications&&typeof window.xchatStopDesktopNotifications==='function')window.xchatStopDesktopNotifications().catch(()=>{})};
+ window.openXChatSettings=()=>{const o=document.getElementById('xchat-settings-overlay');if(o){o.classList.remove('hidden');o.style.display='flex';apply()}};window.closeXChatSettings=()=>{const o=document.getElementById('xchat-settings-overlay');if(o){o.classList.add('hidden');o.style.display='none'}};
+ window.xchatResetSettings=()=>{if(!confirm('Reset all XChat settings on this device?'))return;settings={...defaults};save();apply()};window.xchatResetAppearance=()=>{settings.theme='classic';settings.dark=false;settings.fontSize='medium';settings.spacing='normal';settings.bubbles='classic';settings.blur=true;settings.rounded=true;save();apply()};
+ window.xchatRequestNotifications=async()=>{try{if(!('Notification'in window)){alert('This browser does not support desktop notifications.');return}const p=await Notification.requestPermission();if(p==='granted'){settings.notifications=true;save();apply();if(typeof window.xchatEnableDesktopNotifications==='function')await window.xchatEnableDesktopNotifications()}else alert('Notifications are not allowed by your browser yet.')}catch(e){console.error(e)}};
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')window.closeXChatSettings()});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply,{once:true});else apply();
+})();
+</script>
 </body>
 </html>
